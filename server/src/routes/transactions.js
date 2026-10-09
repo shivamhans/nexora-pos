@@ -38,16 +38,33 @@ router.get('/:id', async (req, res, next) => {
   const input = String(req.params.id || '').trim();
   if (!input || input.length > 60) return res.status(400).json({ error: 'Invalid transaction identifier.' });
   try {
-    const [rows] = await pool.execute(`
+    const saleHeaderSql = `
       SELECT s.id, s.receipt_no AS receiptNo, s.status, s.subtotal, s.discount_total AS discountTotal,
         s.tax_total AS taxTotal, s.total_amount AS totalAmount, s.payment_status AS paymentStatus,
         s.negative_stock_override AS negativeStockOverride, s.stock_override_reason AS stockOverrideReason,
         s.completed_at AS completedAt, c.id AS customerId, COALESCE(c.name, 'Walk-in Customer') AS customer,
         u.name AS cashier
       FROM sales s LEFT JOIN customers c ON c.id = s.customer_id JOIN users u ON u.id = s.cashier_id
-      WHERE s.id = ? OR s.receipt_no = ? LIMIT 1
-    `, [Number.isSafeInteger(Number(input)) ? Number(input) : -1, input]);
-    if (!rows[0]) return res.status(404).json({ error: 'Transaction not found.' });
+    `;
+    let [rows] = await pool.execute(saleHeaderSql + ' WHERE s.id = ? OR s.receipt_no = ? LIMIT 1',
+      [Number.isSafeInteger(Number(input)) ? Number(input) : -1, input]);
+
+    // For returns, support the last four digits of either the receipt number
+    // or numeric sale ID, but never guess when that suffix is ambiguous.
+    if (!rows[0] && /^\d{4}$/.test(input)) {
+      const [matches] = await pool.execute(`
+        SELECT id FROM sales
+        WHERE RIGHT(receipt_no, 4) = ? OR RIGHT(CAST(id AS CHAR), 4) = ?
+        ORDER BY id DESC LIMIT 2
+      `, [input, input]);
+      if (matches.length > 1) {
+        return res.status(409).json({ error: 'More than one sale matches those last four digits. Enter the full receipt number or sale ID.' });
+      }
+      if (matches.length === 1) {
+        [rows] = await pool.execute(saleHeaderSql + ' WHERE s.id = ? LIMIT 1', [matches[0].id]);
+      }
+    }
+    if (!rows[0]) return res.status(404).json({ error: 'Transaction not found. For a return, you can enter a full receipt number or its last four digits.' });
     const sale = rows[0];
     const [lines] = await pool.execute(`
       SELECT id AS saleItemId, item_id AS itemId, item_name_snapshot AS itemName,

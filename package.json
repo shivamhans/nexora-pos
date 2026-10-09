@@ -1,0 +1,12 @@
+{
+  "name": "nexora-pos",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Nexora POS application workspace",
+  "scripts": {
+    "dev:client": "npm --prefix client run dev",
+    "build:client": "npm --prefix client run build",
+    "dev:server": "npm --prefix server run dev",
+    "start:server": "npm --prefix server run start"
+  }
+}

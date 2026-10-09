@@ -1,0 +1,249 @@
+-- Nexora POS schema (MySQL 8.0+)
+-- Single business / single store v1. No business_id/store_id tenancy columns.
+-- Run this only in a dedicated development database after backing up any existing data.
+CREATE DATABASE IF NOT EXISTS nexora_pos CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;
+USE nexora_pos;
+
+CREATE TABLE IF NOT EXISTS business_settings (
+  id TINYINT UNSIGNED NOT NULL PRIMARY KEY DEFAULT 1,
+  business_name VARCHAR(140) NOT NULL DEFAULT 'Nexora Store',
+  currency_code CHAR(3) NOT NULL DEFAULT 'INR',
+  currency_symbol VARCHAR(8) NOT NULL DEFAULT '₹',
+  locale VARCHAR(20) NOT NULL DEFAULT 'en-IN',
+  timezone VARCHAR(64) NOT NULL DEFAULT 'Asia/Kolkata',
+  tax_enabled BOOLEAN NOT NULL DEFAULT FALSE,
+  valuation_method ENUM('WEIGHTED_AVG') NOT NULL DEFAULT 'WEIGHTED_AVG',
+  receipt_footer VARCHAR(255) NULL,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT chk_single_settings_row CHECK (id = 1)
+) ENGINE=InnoDB;
+INSERT IGNORE INTO business_settings (id) VALUES (1);
+
+CREATE TABLE IF NOT EXISTS users (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(140) NOT NULL,
+  email VARCHAR(190) NOT NULL UNIQUE,
+  password_hash VARCHAR(255) NOT NULL,
+  role ENUM('Admin','Manager','Cashier') NOT NULL DEFAULT 'Cashier',
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  last_login_at DATETIME NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS categories (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(120) NOT NULL UNIQUE,
+  description VARCHAR(500) NULL,
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS suppliers (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(180) NOT NULL,
+  contact_name VARCHAR(140) NULL,
+  email VARCHAR(190) NULL,
+  phone VARCHAR(40) NULL,
+  address TEXT NULL,
+  notes TEXT NULL,
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_suppliers_name (name)
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS customers (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(180) NOT NULL,
+  email VARCHAR(190) NULL,
+  phone VARCHAR(40) NULL,
+  notes TEXT NULL,
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_customers_name (name),
+  INDEX idx_customers_phone (phone)
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS items (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(200) NOT NULL,
+  sku VARCHAR(80) NOT NULL UNIQUE,
+  barcode VARCHAR(100) NULL UNIQUE,
+  category_id BIGINT UNSIGNED NULL,
+  description TEXT NULL,
+  selling_price DECIMAL(18,2) NOT NULL DEFAULT 0.00,
+  avg_cost DECIMAL(18,4) NOT NULL DEFAULT 0.0000,
+  qty_on_hand INT NOT NULL DEFAULT 0,
+  reorder_threshold INT NOT NULL DEFAULT 5,
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  created_by BIGINT UNSIGNED NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT fk_items_category FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE SET NULL,
+  CONSTRAINT fk_items_created_by FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL,
+  CONSTRAINT chk_items_selling_price CHECK (selling_price >= 0),
+  CONSTRAINT chk_items_avg_cost CHECK (avg_cost >= 0),
+  CONSTRAINT chk_items_reorder CHECK (reorder_threshold >= 0),
+  INDEX idx_items_name (name),
+  INDEX idx_items_category (category_id),
+  INDEX idx_items_stock (qty_on_hand)
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS purchases (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  purchase_no VARCHAR(40) NOT NULL UNIQUE,
+  supplier_id BIGINT UNSIGNED NULL,
+  status ENUM('DRAFT','ORDERED','PARTIALLY_RECEIVED','RECEIVED','CANCELLED') NOT NULL DEFAULT 'DRAFT',
+  purchase_date DATE NOT NULL,
+  subtotal DECIMAL(18,2) NOT NULL DEFAULT 0.00,
+  additional_cost DECIMAL(18,2) NOT NULL DEFAULT 0.00,
+  total_amount DECIMAL(18,2) NOT NULL DEFAULT 0.00,
+  notes TEXT NULL,
+  created_by BIGINT UNSIGNED NULL,
+  received_by BIGINT UNSIGNED NULL,
+  received_at DATETIME NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT fk_purchases_supplier FOREIGN KEY (supplier_id) REFERENCES suppliers(id) ON DELETE SET NULL,
+  CONSTRAINT fk_purchases_created_by FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL,
+  CONSTRAINT fk_purchases_received_by FOREIGN KEY (received_by) REFERENCES users(id) ON DELETE SET NULL,
+  INDEX idx_purchases_date (purchase_date),
+  INDEX idx_purchases_status (status)
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS purchase_items (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  purchase_id BIGINT UNSIGNED NOT NULL,
+  item_id BIGINT UNSIGNED NOT NULL,
+  quantity_ordered INT NOT NULL,
+  quantity_received INT NOT NULL DEFAULT 0,
+  unit_cost DECIMAL(18,4) NOT NULL,
+  line_total DECIMAL(18,2) NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_purchase_items_purchase FOREIGN KEY (purchase_id) REFERENCES purchases(id),
+  CONSTRAINT fk_purchase_items_item FOREIGN KEY (item_id) REFERENCES items(id),
+  CONSTRAINT chk_purchase_items_qty CHECK (quantity_ordered > 0 AND quantity_received >= 0),
+  INDEX idx_purchase_items_item (item_id)
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS sales (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  receipt_no VARCHAR(60) NOT NULL UNIQUE,
+  customer_id BIGINT UNSIGNED NULL,
+  cashier_id BIGINT UNSIGNED NOT NULL,
+  status ENUM('COMPLETED','VOID') NOT NULL DEFAULT 'COMPLETED',
+  subtotal DECIMAL(18,2) NOT NULL,
+  discount_total DECIMAL(18,2) NOT NULL DEFAULT 0.00,
+  tax_total DECIMAL(18,2) NOT NULL DEFAULT 0.00,
+  total_amount DECIMAL(18,2) NOT NULL,
+  payment_status ENUM('PAID','VOID') NOT NULL DEFAULT 'PAID',
+  negative_stock_override BOOLEAN NOT NULL DEFAULT FALSE,
+  stock_override_reason VARCHAR(500) NULL,
+  idempotency_key VARCHAR(100) NOT NULL UNIQUE,
+  completed_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_sales_customer FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE SET NULL,
+  CONSTRAINT fk_sales_cashier FOREIGN KEY (cashier_id) REFERENCES users(id),
+  CONSTRAINT chk_sales_amounts CHECK (subtotal >= 0 AND discount_total >= 0 AND tax_total >= 0 AND total_amount >= 0),
+  INDEX idx_sales_completed (completed_at),
+  INDEX idx_sales_customer (customer_id),
+  INDEX idx_sales_cashier (cashier_id)
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS sale_items (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  sale_id BIGINT UNSIGNED NOT NULL,
+  item_id BIGINT UNSIGNED NOT NULL,
+  item_name_snapshot VARCHAR(200) NOT NULL,
+  sku_snapshot VARCHAR(80) NOT NULL,
+  quantity INT NOT NULL,
+  unit_price_actual DECIMAL(18,2) NOT NULL,
+  unit_cost_snapshot DECIMAL(18,4) NOT NULL,
+  discount_amount DECIMAL(18,2) NOT NULL DEFAULT 0.00,
+  price_override BOOLEAN NOT NULL DEFAULT FALSE,
+  override_reason VARCHAR(500) NULL,
+  provisional_cost BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_sale_items_sale FOREIGN KEY (sale_id) REFERENCES sales(id),
+  CONSTRAINT fk_sale_items_item FOREIGN KEY (item_id) REFERENCES items(id),
+  CONSTRAINT chk_sale_items_qty CHECK (quantity > 0),
+  INDEX idx_sale_items_item (item_id),
+  INDEX idx_sale_items_sale (sale_id)
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS payments (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  sale_id BIGINT UNSIGNED NOT NULL UNIQUE,
+  method ENUM('CASH','UPI','CARD') NOT NULL,
+  amount_received DECIMAL(18,2) NOT NULL,
+  change_due DECIMAL(18,2) NOT NULL DEFAULT 0.00,
+  reference_no VARCHAR(120) NULL,
+  paid_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_payments_sale FOREIGN KEY (sale_id) REFERENCES sales(id),
+  CONSTRAINT chk_payment_amounts CHECK (amount_received >= 0 AND change_due >= 0)
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS stock_movements (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  item_id BIGINT UNSIGNED NOT NULL,
+  movement_type ENUM('OPENING_STOCK','PURCHASE_RECEIPT','SALE','RETURN_RESTOCK','SUPPLIER_RETURN','ADJUSTMENT_IN','ADJUSTMENT_OUT','DAMAGE_WRITE_OFF','REVERSAL') NOT NULL,
+  qty_delta INT NOT NULL,
+  unit_cost_at_time DECIMAL(18,4) NOT NULL DEFAULT 0.0000,
+  reference_type VARCHAR(40) NULL,
+  reference_id BIGINT UNSIGNED NULL,
+  reason VARCHAR(500) NULL,
+  user_id BIGINT UNSIGNED NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_stock_movements_item FOREIGN KEY (item_id) REFERENCES items(id),
+  CONSTRAINT fk_stock_movements_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
+  INDEX idx_stock_movements_item_date (item_id, created_at),
+  INDEX idx_stock_movements_reference (reference_type, reference_id)
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS returns (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  return_no VARCHAR(50) NOT NULL UNIQUE,
+  sale_id BIGINT UNSIGNED NOT NULL,
+  processed_by BIGINT UNSIGNED NOT NULL,
+  status ENUM('DRAFT','COMPLETED','VOID') NOT NULL DEFAULT 'DRAFT',
+  refund_total DECIMAL(18,2) NOT NULL DEFAULT 0.00,
+  reason VARCHAR(500) NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  completed_at DATETIME NULL,
+  CONSTRAINT fk_returns_sale FOREIGN KEY (sale_id) REFERENCES sales(id),
+  CONSTRAINT fk_returns_user FOREIGN KEY (processed_by) REFERENCES users(id),
+  INDEX idx_returns_sale (sale_id)
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS return_items (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  return_id BIGINT UNSIGNED NOT NULL,
+  sale_item_id BIGINT UNSIGNED NOT NULL,
+  quantity INT NOT NULL,
+  restock BOOLEAN NOT NULL DEFAULT FALSE,
+  condition_note VARCHAR(300) NULL,
+  refund_amount DECIMAL(18,2) NOT NULL,
+  CONSTRAINT fk_return_items_return FOREIGN KEY (return_id) REFERENCES returns(id),
+  CONSTRAINT fk_return_items_sale_item FOREIGN KEY (sale_item_id) REFERENCES sale_items(id),
+  CONSTRAINT chk_return_items_qty CHECK (quantity > 0),
+  INDEX idx_return_items_sale_item (sale_item_id)
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS audit_logs (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  user_id BIGINT UNSIGNED NULL,
+  action VARCHAR(80) NOT NULL,
+  entity_type VARCHAR(60) NOT NULL,
+  entity_id BIGINT UNSIGNED NULL,
+  before_json JSON NULL,
+  after_json JSON NULL,
+  reason VARCHAR(500) NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_audit_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
+  INDEX idx_audit_entity (entity_type, entity_id),
+  INDEX idx_audit_created (created_at)
+) ENGINE=InnoDB;
+
+-- Add an initial Admin through the server seed script; never store a plaintext password.

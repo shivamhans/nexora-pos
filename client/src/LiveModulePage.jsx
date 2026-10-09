@@ -182,7 +182,7 @@ export default function LiveModulePage({ page, auth, items, setItems, notify, on
       path = '/purchases';
     } else return;
     if (!String(form.name || '').trim() && page !== 'Purchases') { notify('Please fill in the required name field.', 'warning'); return; }
-    await runRequest(path, 'POST', payload, page === 'Purchases' ? 'Purchase order created. Stock will change only when quantities are received.' : page.slice(0, -1) + ' created.');
+    await runRequest(path, 'POST', payload, page === 'Purchases' ? 'Purchase order created. Stock will change only when quantities are received.' : ({ Items: 'Item created.', Categories: 'Category created.', Suppliers: 'Supplier created.', Customers: 'Customer created.' }[page] || 'Record created.'));
   };
 
   const setLine = (index, key, value) => setForm(old => ({ ...old, lines: old.lines.map((line, i) => i === index ? { ...line, [key]: value } : line) }));
@@ -207,8 +207,8 @@ export default function LiveModulePage({ page, auth, items, setItems, notify, on
     if (!receivePurchase || busy) return;
     const lines = (receivePurchase.lines || []).map(line => ({ purchaseItemId: Number(line.purchaseItemId), quantity: Number(receiveQuantities[line.purchaseItemId] || 0) })).filter(line => line.quantity > 0);
     if (!lines.length || lines.some(line => !Number.isInteger(line.quantity))) { notify('Enter at least one positive whole quantity to receive.', 'warning'); return; }
-    await runRequest('/purchases/' + receivePurchase.id + '/receive', 'POST', { lines }, 'Receipt recorded. On-hand stock and weighted average cost have been updated.');
-    setReceivePurchase(null);
+    const saved = await runRequest('/purchases/' + receivePurchase.id + '/receive', 'POST', { lines }, 'Receipt recorded. On-hand stock and weighted average cost have been updated.');
+    if (saved) setReceivePurchase(null);
   };
 
   const submitAdjustment = async event => {

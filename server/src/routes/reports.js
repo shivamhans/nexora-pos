@@ -37,11 +37,11 @@ router.get('/summary', async (req, res, next) => {
       WHERE s.status = 'COMPLETED' AND DATE(s.completed_at) BETWEEN ? AND ?
     `, [from, to]);
     const [restockRows] = await pool.execute(`
-      SELECT COALESCE(SUM(ri.quantity * si.unit_cost_snapshot),0) AS restockedCost,
-        COALESCE(SUM(CASE WHEN si.provisional_cost = 1 THEN ri.quantity ELSE 0 END),0) AS provisionalRestockQuantity
+      SELECT COALESCE(SUM(CASE WHEN ri.restock = 1 THEN ri.quantity * si.unit_cost_snapshot ELSE 0 END),0) AS restockedCost,
+        COALESCE(SUM(CASE WHEN si.provisional_cost = 1 THEN ri.quantity ELSE 0 END),0) AS provisionalReturnQuantity
       FROM return_items ri JOIN returns r ON r.id = ri.return_id
       JOIN sale_items si ON si.id = ri.sale_item_id
-      WHERE r.status = 'COMPLETED' AND ri.restock = 1 AND DATE(r.completed_at) BETWEEN ? AND ?
+      WHERE r.status = 'COMPLETED' AND DATE(r.completed_at) BETWEEN ? AND ?
     `, [from, to]);
     const [paymentRows] = await pool.execute(`
       SELECT p.method, COUNT(*) AS paymentCount, COALESCE(SUM(s.total_amount),0) AS amount
@@ -76,7 +76,7 @@ router.get('/summary', async (req, res, next) => {
     const [settingsRows] = await pool.execute('SELECT currency_code AS currencyCode, currency_symbol AS currencySymbol FROM business_settings WHERE id = 1');
     const sale = saleRows[0], ret = returnRows[0], cost = costRows[0], inventory = inventoryRows[0];
     const netRevenue = money2(Number(sale.salesTotal) - Number(ret.refundTotal));
-    const provisionalQuantity = Number(cost.provisionalQuantity || 0) + Number(restockRows[0].provisionalRestockQuantity || 0);
+    const provisionalQuantity = Number(cost.provisionalQuantity || 0) + Number(restockRows[0].provisionalReturnQuantity || 0);
     const cogs = money2(Number(cost.soldCost) - Number(restockRows[0].restockedCost));
     const grossProfit = provisionalQuantity > 0 ? null : money2(netRevenue - cogs);
     const salesByDay = new Map(dailySales.map(row => [dateString(new Date(row.day)), Number(row.amount)]));

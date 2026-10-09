@@ -129,6 +129,20 @@ export default function LiveModulePage({ page, auth, items, setItems, notify, on
     return () => { cancelled = true; };
   }, [page, token, refreshKey, canManage, setItems]);
 
+  useEffect(() => {
+    if (page !== 'Reports' || !token) return;
+    let cancelled = false;
+    setReportLoading(true);
+    apiRequest('/reports/summary?from=' + encodeURIComponent(reportFrom) + '&to=' + encodeURIComponent(reportTo), { token })
+      .then(data => { if (!cancelled) { setReportData(data); setPageError(''); } })
+      .catch(error => {
+        if (!cancelled) setPageError(error.message || 'Could not load reports.');
+        if (error.status === 401 && onUnauthorizedRef.current) onUnauthorizedRef.current();
+      })
+      .finally(() => { if (!cancelled) setReportLoading(false); });
+    return () => { cancelled = true; };
+  }, [page, token, reportFrom, reportTo]);
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return null;
@@ -150,6 +164,7 @@ export default function LiveModulePage({ page, auth, items, setItems, notify, on
     const today = new Date();
     const iso = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0') + '-' + String(today.getDate()).padStart(2, '0');
     setForm(page === 'Items' ? { name: '', sku: '', categoryId: '', sellingPrice: '', initialCost: '', initialQty: '0', reorderThreshold: '5', barcode: '' }
+      : page === 'Staff & Roles' ? { name: '', email: '', role: 'Cashier', password: '' }
       : page === 'Categories' ? { name: '', description: '' }
       : page === 'Suppliers' ? { name: '', contactName: '', email: '', phone: '', address: '', notes: '' }
       : page === 'Customers' ? { name: '', email: '', phone: '', notes: '' }
@@ -195,6 +210,8 @@ export default function LiveModulePage({ page, auth, items, setItems, notify, on
       payload = { name: form.name, contactName: form.contactName, email: form.email, phone: form.phone, address: form.address, notes: form.notes }; path = '/suppliers';
     } else if (page === 'Customers') {
       payload = { name: form.name, email: form.email, phone: form.phone, notes: form.notes }; path = '/customers';
+    } else if (page === 'Staff & Roles') {
+      payload = { name: form.name, email: form.email, role: form.role, password: form.password }; path = '/staff';
     } else if (page === 'Purchases') {
       const lines = (form.lines || []).map(line => ({ itemId: Number(line.itemId), quantity: Number(line.quantity), unitCost: Number(line.unitCost) }));
       if (!lines.length || lines.some(line => !Number.isInteger(line.itemId) || line.itemId < 1 || !Number.isInteger(line.quantity) || line.quantity < 1 || !Number.isFinite(line.unitCost) || line.unitCost < 0)) {
@@ -205,7 +222,7 @@ export default function LiveModulePage({ page, auth, items, setItems, notify, on
       path = '/purchases';
     } else return;
     if (!String(form.name || '').trim() && page !== 'Purchases') { notify('Please fill in the required name field.', 'warning'); return; }
-    await runRequest(path, 'POST', payload, page === 'Purchases' ? 'Purchase order created. Stock will change only when quantities are received.' : ({ Items: 'Item created.', Categories: 'Category created.', Suppliers: 'Supplier created.', Customers: 'Customer created.' }[page] || 'Record created.'));
+    await runRequest(path, 'POST', payload, page === 'Purchases' ? 'Purchase order created. Stock will change only when quantities are received.' : ({ Items: 'Item created.', Categories: 'Category created.', Suppliers: 'Supplier created.', Customers: 'Customer created.', 'Staff & Roles': 'Staff account created.' }[page] || 'Record created.'));
   };
 
   const setLine = (index, key, value) => setForm(old => ({ ...old, lines: old.lines.map((line, i) => i === index ? { ...line, [key]: value } : line) }));
@@ -256,6 +273,97 @@ export default function LiveModulePage({ page, auth, items, setItems, notify, on
       setModal('transaction');
     } catch (error) {
       notify(error.message || 'Could not load transaction details.', 'warning');
+      if (error.status === 401 && onUnauthorized) onUnauthorized();
+    } finally { setBusy(false); }
+  };
+
+  const changeStaffRole = async (row, nextRole) => {
+    if (row.role === nextRole) return;
+    await runRequest('/staff/' + row.id, 'PATCH', { role: nextRole }, 'Role updated. Existing API requests now use the current server role.');
+  };
+
+  const resetStaffPassword = async event => {
+    event.preventDefault();
+    if (!form.password || form.password.length < 12) { notify('Password must be at least 12 characters.', 'warning'); return; }
+    const saved = await runRequest('/staff/' + form.staffId, 'PATCH', { password: form.password }, 'Staff password reset successfully.');
+    if (saved) setForm(old => ({ ...old, password: '' }));
+  };
+
+  const saveSettings = async event => {
+    event.preventDefault();
+    if (!settings || busy) return;
+    setBusy(true);
+    try {
+      const result = await apiRequest('/settings', { method: 'PATCH', token, body: {
+        businessName: settings.businessName,
+        currencyCode: settings.currencyCode,
+        locale: settings.locale,
+        timezone: settings.timezone,
+        receiptFooter: settings.receiptFooter || null,
+        taxEnabled: false,
+      } });
+      setSettings(result.settings);
+      notify('Business settings saved to MySQL.', 'success');
+    } catch (error) {
+      notify(error.message || 'Could not save business settings.', 'warning');
+      if (error.status === 401 && onUnauthorized) onUnauthorized();
+    } finally { setBusy(false); }
+  };
+
+  const loadReturnSale = async () => {
+    const receiptNo = String(form.receiptNo || '').trim();
+    if (!receiptNo) { notify('Enter a receipt number or sale ID first.', 'warning'); return; }
+    setBusy(true);
+    try {
+      const result = await apiRequest('/transactions/' + encodeURIComponent(receiptNo), { token });
+      const sale = result.transaction;
+      if (String(sale.status).toUpperCase() !== 'COMPLETED') { notify('Only completed sales can be returned.', 'warning'); return; }
+      setReturnSale(sale);
+      setReturnLines((sale.lines || []).map(line => ({
+        saleItemId: line.saleItemId,
+        itemName: line.itemName,
+        sku: line.sku,
+        soldQuantity: Number(line.quantity),
+        unitPrice: Number(line.unitPrice),
+        quantity: '0',
+        restock: true,
+        conditionNote: '',
+      })));
+    } catch (error) {
+      notify(error.message || 'Receipt could not be found.', 'warning');
+      if (error.status === 401 && onUnauthorized) onUnauthorized();
+    } finally { setBusy(false); }
+  };
+
+  const submitReturn = async event => {
+    event.preventDefault();
+    if (!returnSale || busy) return;
+    const lines = returnLines.filter(line => Number(line.quantity) > 0).map(line => ({
+      saleItemId: Number(line.saleItemId),
+      quantity: Number(line.quantity),
+      restock: Boolean(line.restock),
+      conditionNote: line.conditionNote || null,
+    }));
+    if (!lines.length || lines.some(line => !Number.isSafeInteger(line.quantity) || line.quantity < 1)) {
+      notify('Enter at least one positive whole quantity to return.', 'warning'); return;
+    }
+    setBusy(true);
+    try {
+      const result = await apiRequest('/returns', { method: 'POST', token, body: {
+        receiptNo: returnSale.receiptNo,
+        reason: form.reason,
+        refundMethod: form.refundMethod,
+        referenceNo: form.referenceNo || null,
+        lines,
+      } });
+      notify('Return ' + result.return.returnNo + ' recorded · Refund ' + cash(result.return.refundTotal) + '. Manual settlement recorded; no gateway was charged.', 'success');
+      setModal('');
+      setReturnSale(null);
+      setReturnLines([]);
+      setQuery('');
+      refresh();
+    } catch (error) {
+      notify(error.message || 'Return could not be completed.', 'warning');
       if (error.status === 401 && onUnauthorized) onUnauthorized();
     } finally { setBusy(false); }
   };

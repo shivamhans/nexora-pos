@@ -53,6 +53,13 @@ router.post('/', async (req, res, next) => {
       const [lineResult] = await connection.execute(`INSERT INTO sale_items (sale_id, item_id, item_name_snapshot, sku_snapshot, quantity, unit_price_actual, unit_cost_snapshot, discount_amount, price_override, override_reason, provisional_cost)
         VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?)`, [saleId, line.item.id, line.item.name, line.item.sku, line.qty, line.unitPrice, current.avg_cost, line.unitPrice !== Number(line.item.selling_price) ? 1 : 0, line.overrideReason, line.qty > current.qty_on_hand ? 1 : 0]);
       await connection.execute('UPDATE items SET qty_on_hand = qty_on_hand - ? WHERE id = ?', [line.qty, line.item.id]);
+      if (line.qty > Number(current.qty_on_hand)) {
+        const shortageQty = Math.max(0, line.qty - Number(current.qty_on_hand));
+        await connection.execute(`INSERT INTO negative_stock_reconciliation
+          (sale_id, sale_item_id, item_id, shortage_qty, reason, created_by)
+          VALUES (?, ?, ?, ?, ?, ?)`,
+          [saleId, lineResult.insertId, line.item.id, shortageQty, stockOverrideReason, req.user.sub]);
+      }
       await connection.execute(`INSERT INTO stock_movements (item_id, movement_type, qty_delta, unit_cost_at_time, reference_type, reference_id, reason, user_id)
         VALUES (?, 'SALE', ?, ?, 'SALE', ?, ?, ?)`, [line.item.id, -line.qty, current.avg_cost, saleId, negativeStockOverride && line.qty > current.qty_on_hand ? stockOverrideReason : null, req.user.sub]);
       if (line.unitPrice !== Number(line.item.selling_price)) await connection.execute(`INSERT INTO audit_logs (user_id, action, entity_type, entity_id, before_json, after_json, reason) VALUES (?, 'PRICE_OVERRIDE', 'SALE_ITEM', ?, ?, ?, ?)`, [req.user.sub, lineResult.insertId, JSON.stringify({ sellingPrice: line.item.selling_price }), JSON.stringify({ unitPrice: line.unitPrice }), line.overrideReason]);

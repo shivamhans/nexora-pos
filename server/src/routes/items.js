@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { randomBytes } from 'node:crypto';
 import { pool } from '../db.js';
 import { requireAuth, allowRoles } from '../middleware/auth.js';
 
@@ -14,10 +15,16 @@ router.get('/', async (req, res, next) => {
 });
 router.post('/', allowRoles('Admin', 'Manager'), async (req, res, next) => {
   try {
-    const { name, sku, categoryId = null, sellingPrice, initialCost = 0, initialQty = 0, reorderThreshold = 5, barcode = null } = req.body || {};
-    if (!name?.trim() || !sku?.trim() || !Number.isFinite(Number(sellingPrice)) || Number(sellingPrice) < 0 || Number(initialQty) < 0 || Number(initialCost) < 0) {
-      return res.status(400).json({ error: 'Name, SKU, valid price, non-negative cost, and non-negative initial quantity are required.' });
+    const { name, sku: suppliedSku, categoryId = null, sellingPrice, initialCost = 0, initialQty = 0, reorderThreshold = 5, barcode = null } = req.body || {};
+    const skuInput = String(suppliedSku || '').trim();
+    if (!name?.trim() || skuInput.length > 80 || !Number.isFinite(Number(sellingPrice)) || Number(sellingPrice) < 0 ||
+      !Number.isFinite(Number(initialCost)) || Number(initialCost) < 0 || !Number.isSafeInteger(Number(initialQty)) || Number(initialQty) < 0 ||
+      !Number.isSafeInteger(Number(reorderThreshold)) || Number(reorderThreshold) < 0) {
+      return res.status(400).json({ error: 'Name, a valid optional SKU (max 80 characters), valid price, non-negative cost, and non-negative whole-number quantities are required.' });
     }
+    // SKU generation happens on the API so it remains unique across users and browsers.
+    // The database unique index is the final safeguard against rare random collisions.
+    const sku = skuInput || ('NX-' + randomBytes(6).toString('hex').toUpperCase());
     const connection = await pool.getConnection();
     try {
       await connection.beginTransaction();
@@ -28,7 +35,7 @@ router.post('/', allowRoles('Admin', 'Manager'), async (req, res, next) => {
           VALUES (?, 'OPENING_STOCK', ?, ?, 'Opening stock', ?)`, [result.insertId, Number(initialQty), Number(initialCost), req.user.sub]);
       }
       await connection.commit();
-      res.status(201).json({ id: result.insertId, name: name.trim(), sku: sku.trim() });
+      res.status(201).json({ id: result.insertId, name: name.trim(), sku });
     } catch (error) { await connection.rollback(); throw error; } finally { connection.release(); }
   } catch (error) {
     if (error.code === 'ER_DUP_ENTRY') return res.status(409).json({ error: 'SKU or barcode already exists.' });

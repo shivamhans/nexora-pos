@@ -1,0 +1,41 @@
+-- Nexora POS Phase 3/4 upgrade migration
+-- Safe to run against an existing nexora_pos_cg database; creates only the tables
+-- added after the original schema. Does not drop, rename, or rewrite existing rows.
+USE nexora_pos_cg;
+
+CREATE TABLE IF NOT EXISTS negative_stock_reconciliation (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  sale_id BIGINT UNSIGNED NOT NULL,
+  sale_item_id BIGINT UNSIGNED NOT NULL,
+  item_id BIGINT UNSIGNED NOT NULL,
+  shortage_qty INT NOT NULL,
+  reason VARCHAR(500) NOT NULL,
+  status ENUM('OPEN','RESOLVED') NOT NULL DEFAULT 'OPEN',
+  created_by BIGINT UNSIGNED NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  resolved_counted_qty INT NULL,
+  resolution_reason VARCHAR(500) NULL,
+  resolved_by BIGINT UNSIGNED NULL,
+  resolved_at DATETIME NULL,
+  CONSTRAINT fk_negative_reconciliation_sale FOREIGN KEY (sale_id) REFERENCES sales(id),
+  CONSTRAINT fk_negative_reconciliation_sale_item FOREIGN KEY (sale_item_id) REFERENCES sale_items(id),
+  CONSTRAINT fk_negative_reconciliation_item FOREIGN KEY (item_id) REFERENCES items(id),
+  CONSTRAINT fk_negative_reconciliation_created_by FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL,
+  CONSTRAINT fk_negative_reconciliation_resolved_by FOREIGN KEY (resolved_by) REFERENCES users(id) ON DELETE SET NULL,
+  CONSTRAINT chk_negative_reconciliation_shortage CHECK (shortage_qty > 0),
+  CONSTRAINT chk_negative_reconciliation_count CHECK (resolved_counted_qty IS NULL OR resolved_counted_qty >= 0),
+  INDEX idx_negative_reconciliation_item_status (item_id, status),
+  INDEX idx_negative_reconciliation_sale (sale_id),
+  INDEX idx_negative_reconciliation_status_created (status, created_at)
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS return_payments (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  return_id BIGINT UNSIGNED NOT NULL UNIQUE,
+  method ENUM('CASH','UPI','CARD') NOT NULL,
+  amount DECIMAL(18,2) NOT NULL,
+  reference_no VARCHAR(120) NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_return_payments_return FOREIGN KEY (return_id) REFERENCES returns(id),
+  CONSTRAINT chk_return_payments_amount CHECK (amount >= 0)
+) ENGINE=InnoDB;

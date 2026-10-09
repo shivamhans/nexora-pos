@@ -25,5 +25,5 @@ app.use((error, _req, res, _next) => {
   if (res.headersSent) return;
   res.status(500).json({ error: process.env.NODE_ENV === 'production' ? 'An unexpected server error occurred.' : error.message || 'Unexpected server error.' });
 });
-const port = Number(process.env.PORT || 4000);
+const port = Number(process.env.PORT || 4001);
 app.listen(port, () => console.log(`Nexora POS API listening on http://localhost:${port}`));

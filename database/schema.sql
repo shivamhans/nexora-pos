@@ -1,8 +1,8 @@
 -- Nexora POS schema (MySQL 8.0+)
 -- Single business / single store v1. No business_id/store_id tenancy columns.
 -- Run this only in a dedicated development database after backing up any existing data.
-CREATE DATABASE IF NOT EXISTS nexora_pos CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;
-USE nexora_pos;
+CREATE DATABASE IF NOT EXISTS nexora_pos_cg CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;
+USE nexora_pos_cg;
 
 CREATE TABLE IF NOT EXISTS business_settings (
   id TINYINT UNSIGNED NOT NULL PRIMARY KEY DEFAULT 1,

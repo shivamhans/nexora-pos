@@ -12,6 +12,10 @@ import suppliersRoutes from './routes/suppliers.js';
 import purchasesRoutes from './routes/purchases.js';
 import inventoryRoutes from './routes/inventory.js';
 import transactionsRoutes from './routes/transactions.js';
+import staffRoutes from './routes/staff.js';
+import returnsRoutes from './routes/returns.js';
+import settingsRoutes from './routes/settings.js';
+import reportsRoutes from './routes/reports.js';
 
 const app = express();
 app.use(helmet());
@@ -38,6 +42,10 @@ app.use('/api/suppliers', suppliersRoutes);
 app.use('/api/purchases', purchasesRoutes);
 app.use('/api/inventory', inventoryRoutes);
 app.use('/api/transactions', transactionsRoutes);
+app.use('/api/staff', staffRoutes);
+app.use('/api/returns', returnsRoutes);
+app.use('/api/settings', settingsRoutes);
+app.use('/api/reports', reportsRoutes);
 app.use((req, res) => res.status(404).json({ error: `Route not found: ${req.method} ${req.path}` }));
 app.use((error, _req, res, _next) => {
   console.error(error);

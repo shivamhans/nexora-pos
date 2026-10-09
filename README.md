@@ -1,108 +1,110 @@
-# Nexora POS — Phase 1 foundation
+# Nexora POS
 
-A polished, responsive React/Vite/Tailwind POS interface with a Node/Express/MySQL backend scaffold. This delivery prioritizes the visual system and interactive frontend so the screens and core workflow can be reviewed before full backend integration.
+Nexora POS is a desktop-first point-of-sale and inventory workspace built with React, Vite, Tailwind CSS, Express, and local MySQL.
 
-## Included
+## Current branch: Phase 2 API integration
 
-- Premium violet glassmorphism UI with light/dark themes
-- Responsive navigation, global page search, notifications, role preview
-- Dashboard with sales chart, payment mix, recent transactions, stock attention
-- Inventory list with search, category/status filters, selection and status pills
-- Interactive POS catalog/cart, quantity controls, role-aware price/discount UI, full-payment flow, cash change calculation, receipt preview/print
-- UI scaffolds for Items, Categories, Purchases, Suppliers, Customers, Staff & Roles, Transactions, Reports, Returns & Refunds, and Settings
-- Express API scaffold with health check, login, item listing/creation, and transactional sale endpoint
-- MySQL schema for users, settings, catalog, stock movement ledger, purchases, sales, payments, returns and audit logs
+The `phase-2-api-integration` branch adds:
+- Sign-in against the Express API, with the authenticated user and role shown in the workspace.
+- Catalog loading from `GET /api/items`; connected sales use the database catalog instead of the sample catalog.
+- POS sale submission to `POST /api/sales`, including payment method, cash received/change, order discount reason, authorized price overrides, and Admin stock-override reasons.
+- A stable idempotency key for retries during the same checkout attempt.
+- A polished sign-in screen with API health status and an explicitly demo-only entry.
+- Example environment files and a GitHub Actions build/syntax workflow.
 
-## Important prototype boundary
+**This is still not a production-ready POS.** Several pages, dashboard charts, customers, purchases, returns, settings and reports remain demo/scaffold screens. The dashboard metrics are illustrative; they must not be treated as real sales totals or profit. Real tax calculation, purchase receiving/WAC updates, reconciliation queue processing, complete returns/refunds, and end-to-end/security tests are not finished.
 
-The frontend currently uses illustrative in-memory demo data. A sale in the UI changes local state only; it is **not persisted** to MySQL yet. Role selection is a UI preview and is not a secure authentication mechanism. Do not use this prototype for live sales or real business records. The backend endpoints are separate and require database setup and API integration before they can power the UI.
+## Stack
+- Frontend: React + Vite + Tailwind CSS, Lucide, Recharts
+- Backend: Node.js + Express REST API
+- Database: local MySQL 8+
+- The browser calls the Express API; it must never connect directly to MySQL.
 
-The sale API stores one payment per sale and requires full payment. Negative stock is blocked by default and Admin-only override validation exists, but the negative-stock cost-basis/reconciliation policy remains a known unresolved business decision. Review and test before production use.
+## Run locally
+Requirements: Node.js 20+ (22 recommended) and MySQL 8+.
 
-## Requirements
-
-- Node.js 20+ recommended
-- MySQL 8.0+
-- npm
-
-## Run the frontend
-
-```bash
-cd client
-npm install
-npm run dev
-```
-
-Open the local URL Vite prints (normally `http://localhost:5173`).
-
-## Set up MySQL
-
-1. Start MySQL locally.
-2. Import `database/schema.sql` using MySQL Workbench or the MySQL CLI.
-
-Example:
+### 1. Start MySQL
+Start your local MySQL service. Import the schema once from the repository root:
 
 ```bash
 mysql -u root -p < database/schema.sql
 ```
 
-The schema creates the `nexora_pos` database and its tables. If your local MySQL account has a password, use it when prompted.
+Alternatively, open `database/schema.sql` in MySQL Workbench and execute it. The schema creates the `nexora_pos` database.
 
-## Run the API
+### 2. Configure and start the API
+In a terminal:
 
 ```bash
 cd server
-cp .env.example .env
 ```
 
-Edit `server/.env` with your MySQL username/password and a long random `JWT_SECRET`, then:
+Copy `server/.env.example` to `server/.env` (on Windows PowerShell, use `Copy-Item .env.example .env`) and update the MySQL credentials. Replace `JWT_SECRET` with a long, random secret before signing in. Then:
 
 ```bash
 npm install
 npm run dev
 ```
 
-API health check: `http://localhost:4000/api/health`
+Health endpoint: http://localhost:4000/api/health
 
-Create the first Admin account using a strong password (12+ characters):
+Create the first Admin account in another terminal, from the `server` folder:
 
 ```bash
-node src/seed-admin.js "Store Admin" admin@example.com "your-strong-password"
+node src/seed-admin.js "Store Admin" admin@example.com "use-a-strong-unique-password"
 ```
 
-Login endpoint: `POST /api/auth/login` with JSON `{ "email": "admin@example.com", "password": "your-strong-password" }`.
+Use a strong password of at least 12 characters. Keep it private.
 
-Protected endpoints currently include:
-- `GET /api/items`
-- `POST /api/items`
-- `POST /api/sales`
+### 3. Start the frontend
+In a separate terminal, from the repository root:
 
-Use a Bearer token from the login response. The frontend is not yet connected to these endpoints.
+```bash
+cd client
+```
 
-## Confirmed business rules represented in the design
+Copy `client/.env.example` to `client/.env` if you want to set an API URL explicitly. The default is `http://localhost:4000/api`.
 
-- Single business / single store for v1
-- Configurable business currency; no foreign exchange
-- Tax disabled by default
-- Discounts and price overrides restricted to Manager/Admin
-- No credit sales; completed sales require full payment
-- Weighted average cost as inventory valuation method
-- Negative stock prohibited by default; Admin override requires warning, reason and audit record
+Then:
 
-## Known design decisions still open
+```bash
+npm install
+npm run dev
+```
 
-- Split payments (not included in v1 UI)
-- Negative-stock cost treatment and reconciliation details
-- Capitalization of freight/purchase-side charges into weighted average cost
-- Damaged stock write-off accounting
-- Line-level discounts (current design proposes order-level only)
-- Receipt hardware/thermal printer support
-- Tax rules if the optional tax setting is enabled
+Open the Vite URL printed in the terminal, normally http://localhost:5173. Sign in with the Admin credentials you created. Select **Explore demo workspace** only to inspect the design using sample data.
 
-## Next phases
+## Confirmed v1 business rules
+- One business and one store for v1.
+- One configurable base currency; no foreign-exchange conversion.
+- Tax is configurable and disabled by default.
+- Only Admin/Manager can apply discounts or override prices; reasons and audit records are required.
+- No credit sales; full payment is required before a sale completes.
+- Weighted average cost (WAC) is the stock valuation method.
+- Negative stock is blocked by default. An Admin override requires a warning, a reason, an audit record, and reconciliation follow-up.
+- Stock updates when a purchase is received, not when it is merely ordered.
+- Stock changes use an append-only movement ledger.
+- Use MySQL DECIMAL for monetary values. Keep historical sale cost snapshots. Sale, sale lines, payment and stock changes must be atomic.
+- Do not claim net profit without an expenses module. Gross profit must only be shown when cost data is available.
 
-1. Connect frontend authentication and API state to the backend.
-2. Complete catalog, categories, suppliers, purchases and inventory movement workflows.
-3. Complete returns/refunds, staff management, settings and report endpoints.
-4. Add automated tests for permissions, WAC calculations, stock locking, idempotency and rollback behavior.
-5. Conduct security review and production hardening before using real data.
+## Remaining phases
+1. Finish UI polish and responsive review.
+2. Connect core UI screens to authentication/API state and database-backed sales/catalog.
+3. Complete items, categories, suppliers, purchase receiving, WAC updates, stock adjustments, customer and transaction history.
+4. Complete returns/refunds, staff management, configurable settings, report endpoints and audit-log views.
+5. Add an explicit negative-stock reconciliation queue and settle the cost-basis policy for overridden sales.
+6. Add tests for permissions, WAC calculations, concurrent stock locking, duplicate submissions, rollback behavior and secure configuration; complete a security review before production.
+
+## Decisions intentionally left open
+- Split payments.
+- Negative-stock cost treatment and reconciliation policy.
+- Capitalizing freight/purchase-side charges into WAC.
+- Damaged-stock write-off accounting.
+- Line-level discounts (current proposal is order-level only).
+- Thermal receipt printer/hardware support.
+- Tax rules if optional tax is enabled.
+
+## Security reminders
+- Never commit `.env`, passwords, tokens, keys, or real customer/business exports.
+- Authentication and permissions must be enforced by the API. Role preview exists only in demo mode.
+- Do not use this branch for live transactions until the unfinished modules, tests and security checks are complete.

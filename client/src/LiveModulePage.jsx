@@ -423,6 +423,8 @@ export default function LiveModulePage({ page, auth, items, setItems, notify, on
   const liveCreateAllowed = page === 'Customers' || (page === 'Staff & Roles' ? role === 'Admin' : canManage);
   const showCreate = !['Transactions', 'Reports', 'Settings', 'Returns & Refunds'].includes(page) && liveCreateAllowed;
 
+  const reportMoney = value => (reportData?.currency?.currencySymbol || '₹') + Number(value || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
   const exportReportCsv = () => {
     if (!reportData) return;
     const rows = reportData.daily || [];
@@ -444,11 +446,11 @@ export default function LiveModulePage({ page, auth, items, setItems, notify, on
   return <>
     <div className="section-title"><div><div className="eyebrow">{eyebrow}</div><h1>{title}</h1><p>{subtitle}</p></div><div className="title-actions">{moduleActions}</div></div>
     {pageError && <div className="live-error"><AlertTriangle size={17}/><span>{pageError}</span><LiveButton icon={RefreshCw} onClick={refresh}>Retry</LiveButton></div>}
-    <div className="live-metrics">
+    {!['Settings', 'Reports'].includes(page) && <div className="live-metrics">
       <div className="live-metric-card"><span className="live-metric-icon"><Icon size={18}/></span><div><small>{page === 'Transactions' ? 'Matching transactions' : page === 'Purchases' ? 'Purchase orders' : page === 'Inventory' ? 'Active SKUs' : 'Records'}</small><strong>{loading ? '—' : statA}</strong></div></div>
-      <div className="live-metric-card"><span className="live-metric-icon metric-icon-amber"><AlertTriangle size={18}/></span><div><small>{statBLabel}</small><strong>{loading ? '—' : page === 'Customers' ? cash(statB) : statB}</strong></div></div>
+      <div className="live-metric-card"><span className="live-metric-icon metric-icon-amber"><AlertTriangle size={18}/></span><div><small>{statBLabel}</small><strong>{loading ? '—' : ['Customers', 'Returns & Refunds'].includes(page) ? cash(statB) : statB}</strong></div></div>
       <div className="live-metric-card"><span className="live-metric-icon metric-icon-green"><CircleCheck size={18}/></span><div><small>Data source</small><strong className="live-source-label">MySQL via API</strong></div></div>
-    </div>
+    </div>}
 
     {page === 'Staff & Roles' && <section className="panel live-section">
       <div className="panel-head"><div><h2>Team accounts</h2><p>Only active Admins can create staff, reset passwords, and adjust roles.</p></div><StatusPill value={staff.filter(row=>Boolean(Number(row.isActive))).length ? 'ACTIVE' : 'INACTIVE'}/></div>
@@ -535,7 +537,7 @@ export default function LiveModulePage({ page, auth, items, setItems, notify, on
       {movements.length ? <div className="table-wrap"><table><thead><tr><th>DATE</th><th>ITEM</th><th>MOVEMENT</th><th>QUANTITY</th><th>COST AT TIME</th><th>REASON</th><th>USER</th></tr></thead><tbody>{movements.map(row=><tr key={row.id}><td>{asDate(row.createdAt)}</td><td><b>{row.itemName}</b><small className="live-cell-sub">{row.sku}</small></td><td>{prettyStatus(row.movementType)}</td><td className={Number(row.quantityDelta ?? row.qtyDelta) < 0 ? 'live-negative' : 'live-positive'}>{Number(row.quantityDelta ?? row.qtyDelta) > 0 ? '+' : ''}{row.quantityDelta ?? row.qtyDelta}</td><td>{cash(row.unitCostAtTime)}</td><td>{row.reason || '—'}</td><td>{row.userName || row.user || '—'}</td></tr>)}</tbody></table></div> : <BlankState title="No stock movements yet" text="Opening stock, receiving, sales and adjustments will be listed here."/>}
     </section>}
 
-    {page !== 'Inventory' && <section className="panel live-section">
+    {!['Inventory', 'Settings', 'Reports', 'Returns & Refunds', 'Staff & Roles'].includes(page) && <section className="panel live-section">
       <div className="panel-head"><div><h2>{page === 'Transactions' ? 'Sales history' : page + ' directory'}</h2><p>{page === 'Purchases' ? 'Purchase orders do not affect stock until received.' : page === 'Items' ? 'Live prices, cost snapshots and stock levels from the database.' : page === 'Transactions' ? 'Open a receipt to review saved line items and payments.' : 'Changes are validated and saved by the API.'}</p></div><div className="toolbar-controls"><div className="search-box compact"><Search size={16}/><input placeholder={'Search ' + page.toLowerCase() + '…'} value={query} onChange={e=>setQuery(e.target.value)}/><button className="icon-button small" onClick={refresh} title="Refresh"><RefreshCw size={14}/></button></div></div></div>
       {loading ? <div className="live-loading"><span className="login-status-pulse"/><span>Loading live records…</span></div>
       : currentRows.length === 0 ? <BlankState title={'No ' + page.toLowerCase() + ' found'} text={query ? 'Try another search term.' : 'Create your first record to start using this workflow.'} onAdd={showCreate ? openCreate : undefined} addLabel={addLabel}/>
@@ -557,9 +559,9 @@ export default function LiveModulePage({ page, auth, items, setItems, notify, on
       <div className="table-footer"><span>{loading ? 'Fetching from database…' : 'Showing ' + currentRows.length + ' live record' + (currentRows.length === 1 ? '' : 's')}</span><span className="muted">API connected · {role}</span></div>
     </section>}
 
-    {modal === 'create' && <LiveModal title={page === 'Items' ? 'Add item' : page === 'Categories' ? 'Add category' : page === 'Suppliers' ? 'Add supplier' : page === 'Customers' ? 'Add customer' : 'Create purchase order'} subtitle="Required fields are validated by Nexora's API." onClose={()=>setModal('')} onSubmit={submitCreate} busy={busy} submitLabel={page === 'Purchases' ? 'Create purchase order' : 'Save record'} wide={page === 'Purchases'}>
-      {(page === 'Items' || page === 'Categories' || page === 'Suppliers' || page === 'Customers') && <div className="live-form-grid">
-        <Field label="Name *"><input className="form-input" required maxLength={180} value={form.name || ''} onChange={e=>setValue('name',e.target.value)} placeholder={page === 'Items' ? 'e.g. Matcha Energy Blend' : page === 'Categories' ? 'e.g. Beverages' : page === 'Suppliers' ? 'Supplier business name' : 'Customer full name'}/></Field>
+    {modal === 'create' && <LiveModal title={page === 'Items' ? 'Add item' : page === 'Categories' ? 'Add category' : page === 'Suppliers' ? 'Add supplier' : page === 'Customers' ? 'Add customer' : page === 'Staff & Roles' ? 'Invite staff member' : 'Create purchase order'} subtitle="Required fields are validated by Nexora's API." onClose={()=>setModal('')} onSubmit={submitCreate} busy={busy} submitLabel={page === 'Purchases' ? 'Create purchase order' : 'Save record'} wide={page === 'Purchases'}>
+      {(page === 'Items' || page === 'Categories' || page === 'Suppliers' || page === 'Customers' || page === 'Staff & Roles') && <div className="live-form-grid">
+        <Field label="Name *"><input className="form-input" required maxLength={180} value={form.name || ''} onChange={e=>setValue('name',e.target.value)} placeholder={page === 'Items' ? 'e.g. Matcha Energy Blend' : page === 'Categories' ? 'e.g. Beverages' : page === 'Suppliers' ? 'Supplier business name' : page === 'Staff & Roles' ? 'Team member name' : 'Customer full name'}/></Field>
         {page === 'Items' && <>
           <Field label="SKU *"><input className="form-input" required maxLength={80} value={form.sku || ''} onChange={e=>setValue('sku',e.target.value)} placeholder="NX-1009"/></Field>
           <Field label="Category"><select className="form-input" value={form.categoryId || ''} onChange={e=>setValue('categoryId',e.target.value)}><option value="">Uncategorized</option>{categories.filter(x=>Number(x.isActive)).map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></Field>
@@ -570,9 +572,12 @@ export default function LiveModulePage({ page, auth, items, setItems, notify, on
           <Field label="Barcode (optional)"><input className="form-input" value={form.barcode || ''} onChange={e=>setValue('barcode',e.target.value)} /></Field>
         </>}
         {page === 'Categories' && <Field label="Description"><textarea className="form-input textarea" maxLength={500} value={form.description || ''} onChange={e=>setValue('description',e.target.value)} placeholder="What belongs in this category?"/></Field>}
-        {(page === 'Suppliers' || page === 'Customers') && <>
-          <Field label="Email"><input className="form-input" type="email" value={form.email || ''} onChange={e=>setValue('email',e.target.value)} placeholder="name@example.com"/></Field>
-          <Field label="Phone"><input className="form-input" value={form.phone || ''} onChange={e=>setValue('phone',e.target.value)} placeholder="Contact number"/></Field>
+        {(page === 'Suppliers' || page === 'Customers' || page === 'Staff & Roles') && <>
+          <Field label="Email *"><input className="form-input" type="email" required value={form.email || ''} onChange={e=>setValue('email',e.target.value)} placeholder="name@example.com"/></Field>
+          {page === 'Staff & Roles' ? <>
+            <Field label="Temporary password *"><input className="form-input" type="password" minLength={12} required autoComplete="new-password" value={form.password || ''} onChange={e=>setValue('password',e.target.value)} placeholder="At least 12 characters"/><small>Passwords are hashed before storage. Share the temporary password securely.</small></Field>
+            <Field label="Role"><select className="form-input" value={form.role || 'Cashier'} onChange={e=>setValue('role',e.target.value)}><option>Cashier</option><option>Manager</option><option>Admin</option></select></Field>
+          </> : <Field label="Phone"><input className="form-input" value={form.phone || ''} onChange={e=>setValue('phone',e.target.value)} placeholder="Contact number"/></Field>}
           {page === 'Suppliers' && <>
             <Field label="Contact person"><input className="form-input" value={form.contactName || ''} onChange={e=>setValue('contactName',e.target.value)}/></Field>
             <Field label="Address"><input className="form-input" value={form.address || ''} onChange={e=>setValue('address',e.target.value)}/></Field>

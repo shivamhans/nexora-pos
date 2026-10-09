@@ -398,8 +398,14 @@ export default function LiveModulePage({ page, auth, items, setItems, notify, on
   if (page === 'Purchases') { subtitle = 'Create orders, receive quantities, and update weighted average cost.'; eyebrow = 'CATALOG & STOCK'; Icon = PackagePlus; addLabel = 'New purchase'; }
   if (page === 'Transactions') { subtitle = 'A searchable history of database-backed sales and payments.'; eyebrow = 'WORKSPACE'; Icon = History; addLabel = 'Export CSV'; }
   if (page === 'Inventory') { subtitle = 'Stock adjustments, immutable movement history, and Admin reconciliation.'; eyebrow = 'CATALOG & STOCK'; Icon = Boxes; addLabel = 'Adjust stock'; }
+  if (page === 'Staff & Roles') { title = 'Staff & roles'; subtitle = 'Create team accounts, reset passwords, and manage access.'; eyebrow = 'SECURITY & ACCESS'; Icon = ShieldCheck; addLabel = 'Invite staff'; }
+  if (page === 'Returns & Refunds') { title = 'Returns & refunds'; subtitle = 'Process eligible sale lines with a traceable manual refund record.'; eyebrow = 'SALES ADJUSTMENTS'; Icon = RotateCcw; addLabel = 'Start return'; }
+  if (page === 'Settings') { title = 'Business settings'; subtitle = 'Configure the store profile, currency, locale, and receipt footer.'; eyebrow = 'BUSINESS CONFIGURATION'; Icon = Save; }
+  if (page === 'Reports') { title = 'Reports & analytics'; subtitle = 'Sales, returns, inventory valuation, and cost-aware gross profit from saved records.'; eyebrow = 'LIVE BUSINESS INSIGHTS'; Icon = Wallet; }
   const filteredItems = filtered || items;
   const statA = page === 'Items' || page === 'Inventory' ? filteredItems.length
+    : page === 'Staff & Roles' ? currentRows.length
+    : page === 'Returns & Refunds' ? currentRows.length
     : page === 'Categories' ? currentRows.length
     : page === 'Suppliers' ? currentRows.length
     : page === 'Customers' ? currentRows.length
@@ -410,14 +416,26 @@ export default function LiveModulePage({ page, auth, items, setItems, notify, on
     : page === 'Transactions' ? transactions.filter(row => String(row.status).toUpperCase() === 'COMPLETED').length
     : page === 'Customers' ? customers.reduce((sum, row) => sum + Number(row.totalSpent || 0), 0)
     : page === 'Suppliers' ? suppliers.reduce((sum, row) => sum + Number(row.purchaseCount || 0), 0)
-    : page === 'Categories' ? categories.reduce((sum, row) => sum + Number(row.itemCount || 0), 0) : 0;
-  const statBLabel = page === 'Inventory' ? 'Out of stock' : page === 'Items' ? 'Low stock items' : page === 'Purchases' ? 'Awaiting receipt' : page === 'Transactions' ? 'Completed sales' : page === 'Customers' ? 'Total customer spend' : page === 'Suppliers' ? 'Linked purchase orders' : 'Items assigned';
-  const liveCreateAllowed = page === 'Customers' || canManage;
-  const showCreate = page !== 'Transactions' && liveCreateAllowed;
+    : page === 'Categories' ? categories.reduce((sum, row) => sum + Number(row.itemCount || 0), 0)
+    : page === 'Staff & Roles' ? staff.filter(row => Boolean(Number(row.isActive))).length
+    : page === 'Returns & Refunds' ? returnsRows.filter(row => String(row.status).toUpperCase() === 'COMPLETED').reduce((sum, row) => sum + Number(row.refundTotal || 0), 0) : 0;
+  const statBLabel = page === 'Inventory' ? 'Out of stock' : page === 'Items' ? 'Low stock items' : page === 'Purchases' ? 'Awaiting receipt' : page === 'Transactions' ? 'Completed sales' : page === 'Customers' ? 'Total customer spend' : page === 'Suppliers' ? 'Linked purchase orders' : page === 'Staff & Roles' ? 'Active accounts' : page === 'Returns & Refunds' ? 'Total refunds recorded' : 'Items assigned';
+  const liveCreateAllowed = page === 'Customers' || (page === 'Staff & Roles' ? role === 'Admin' : canManage);
+  const showCreate = !['Transactions', 'Reports', 'Settings', 'Returns & Refunds'].includes(page) && liveCreateAllowed;
+
+  const exportReportCsv = () => {
+    if (!reportData) return;
+    const rows = reportData.daily || [];
+    const csv = ['date,sales,refunds,netRevenue', ...rows.map(row => [row.day, row.sales, row.refunds, row.netRevenue].join(','))].join('\r\n');
+    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
+    const anchor = document.createElement('a'); anchor.href = url; anchor.download = 'nexora-sales-report-' + reportFrom + '-to-' + reportTo + '.csv'; anchor.click(); URL.revokeObjectURL(url);
+  };
 
   const moduleActions = <>
-    <LiveButton icon={Download} onClick={exportData}>Export CSV</LiveButton>
-    {showCreate && <LiveButton variant="primary" icon={page === 'Purchases' ? PackagePlus : page === 'Inventory' ? Boxes : Plus} onClick={() => {
+    {!['Settings', 'Returns & Refunds', 'Reports'].includes(page) && <LiveButton icon={Download} onClick={exportData}>Export CSV</LiveButton>}
+    {page === 'Reports' && <LiveButton icon={Download} onClick={exportReportCsv} disabled={!reportData}>Export CSV</LiveButton>}
+    {page === 'Returns & Refunds' && <LiveButton variant="primary" icon={RotateCcw} onClick={() => { setForm({ receiptNo: '', reason: '', refundMethod: 'Cash', referenceNo: '' }); setReturnSale(null); setReturnLines([]); setModal('return-create'); }}>Start return</LiveButton>}
+    {showCreate && <LiveButton variant="primary" icon={page === 'Purchases' ? PackagePlus : page === 'Inventory' ? Boxes : page === 'Staff & Roles' ? ShieldCheck : Plus} onClick={() => {
       if (page === 'Inventory') { setForm({ itemId: items[0]?.apiId || '', delta: '1', type: 'ADJUSTMENT', reason: '' }); setModal('adjust'); }
       else openCreate();
     }}>{addLabel}</LiveButton>}

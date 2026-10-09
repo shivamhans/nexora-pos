@@ -30,7 +30,7 @@ Start your local MySQL service. Import the schema once from the repository root:
 mysql -u root -p < database/schema.sql
 ```
 
-Alternatively, open `database/schema.sql` in MySQL Workbench and execute it. The schema creates the `nexora_pos` database.
+Alternatively, open `database/schema.sql` in MySQL Workbench and execute it. The schema creates the `nexora_pos_cg` database.
 
 ### 2. Configure and start the API
 In a terminal:

@@ -450,6 +450,78 @@ export default function LiveModulePage({ page, auth, items, setItems, notify, on
       <div className="live-metric-card"><span className="live-metric-icon metric-icon-green"><CircleCheck size={18}/></span><div><small>Data source</small><strong className="live-source-label">MySQL via API</strong></div></div>
     </div>
 
+    {page === 'Staff & Roles' && <section className="panel live-section">
+      <div className="panel-head"><div><h2>Team accounts</h2><p>Only active Admins can create staff, reset passwords, and adjust roles.</p></div><StatusPill value={staff.filter(row=>Boolean(Number(row.isActive))).length ? 'ACTIVE' : 'INACTIVE'}/></div>
+      {loading ? <div className="live-loading"><span className="login-status-pulse"/><span>Loading staff accounts…</span></div>
+      : currentRows.length === 0 ? <BlankState title="No staff accounts found" text="Create a team account with the smallest role it needs." onAdd={showCreate ? openCreate : undefined} addLabel="Invite staff"/>
+      : <div className="table-wrap"><table><thead><tr><th>TEAM MEMBER</th><th>ROLE</th><th>STATUS</th><th>LAST LOGIN</th><th>CREATED</th><th>ACTIONS</th></tr></thead><tbody>{currentRows.map(row=><tr key={row.id}>
+        <td><b>{row.name}</b><small className="live-cell-sub">{row.email}</small></td>
+        <td>{role === 'Admin' ? <select className="staff-role-select" value={row.role} onChange={e=>changeStaffRole(row,e.target.value)}><option>Admin</option><option>Manager</option><option>Cashier</option></select> : <StatusPill value={row.role}/>}</td>
+        <td><StatusPill value={Number(row.isActive) ? 'ACTIVE' : 'INACTIVE'}/></td>
+        <td>{row.lastLoginAt ? asDate(row.lastLoginAt) : 'Never'}</td><td>{asDate(row.createdAt)}</td>
+        <td><div className="table-action-group"><LiveButton onClick={()=>{setForm({staffId:row.id,staffName:row.name,password:''});setModal('staff-password');}} icon={ShieldCheck}>Reset password</LiveButton><LiveButton onClick={()=>toggleActive('staff',row)}>{Number(row.isActive) ? 'Deactivate' : 'Activate'}</LiveButton></div></td>
+      </tr>)}</tbody></table></div>}
+      <div className="table-footer"><span>{staff.length} account(s)</span><span className="muted">Passwords are hashed · Changes are audited</span></div>
+    </section>}
+
+    {page === 'Returns & Refunds' && <section className="panel live-section">
+      <div className="panel-head"><div><h2>Return history</h2><p>Partial quantities are validated against the original sale and previous returns.</p></div><div className="toolbar-controls"><div className="search-box compact"><Search size={16}/><input placeholder="Search return or receipt…" value={query} onChange={e=>setQuery(e.target.value)}/><button className="icon-button small" onClick={refresh} title="Refresh"><RefreshCw size={14}/></button></div></div></div>
+      {loading ? <div className="live-loading"><span className="login-status-pulse"/><span>Loading returns…</span></div>
+      : currentRows.length === 0 ? <BlankState title="No returns recorded" text="Start a return from a completed receipt. Refund method and reason are retained in the audit trail." onAdd={showCreate ? ()=>{setForm({receiptNo:'',reason:'',refundMethod:'Cash',referenceNo:''});setReturnSale(null);setReturnLines([]);setModal('return-create');} : undefined} addLabel="Start return"/>
+      : <div className="table-wrap"><table><thead><tr><th>RETURN</th><th>ORIGINAL RECEIPT</th><th>CUSTOMER</th><th>DATE</th><th>REFUND</th><th>SETTLEMENT</th><th>STATUS</th></tr></thead><tbody>{currentRows.map(row=><tr key={row.id}>
+        <td><b>{row.returnNo}</b><small className="live-cell-sub">{row.processedBy || 'Staff'}</small></td><td>{row.receiptNo}</td><td>{row.customer}</td><td>{asDate(row.completedAt || row.createdAt)}</td><td><b>{cash(row.refundTotal)}</b></td><td>{prettyStatus(row.refundMethod || 'MANUAL')}</td><td><StatusPill value={row.status}/></td>
+      </tr>)}</tbody></table></div>}
+      <div className="warning-callout"><CircleHelp size={16}/><span>Settlement is recorded manually; Nexora does not send money through a payment gateway. Returned lines marked as restocked increase quantity and update weighted-average cost using the original sale cost snapshot.</span></div>
+    </section>}
+
+    {page === 'Settings' && <section className="panel live-section settings-live-panel">
+      <div className="panel-head"><div><h2>Business profile</h2><p>Saved to the single-store business settings record in MySQL.</p></div><StatusPill value={role === 'Admin' ? 'ADMIN EDIT' : 'READ ONLY'}/></div>
+      {loading || !settings ? <div className="live-loading"><span className="login-status-pulse"/><span>Loading persisted settings…</span></div> :
+      <form className="settings-live-form" onSubmit={saveSettings}>
+        <div className="live-form-grid">
+          <Field label="Business name *"><input className="form-input" required maxLength={140} value={settings.businessName || ''} onChange={e=>setSettings(old=>({...old,businessName:e.target.value}))} disabled={role!=='Admin'}/></Field>
+          <Field label="Base currency"><select className="form-input" value={settings.currencyCode || 'INR'} onChange={e=>setSettings(old=>({...old,currencyCode:e.target.value}))} disabled={role!=='Admin'}><option value="INR">INR · Indian Rupee</option><option value="USD">USD · US Dollar</option><option value="GBP">GBP · British Pound</option><option value="EUR">EUR · Euro</option></select><small>Changing currency relabels values; it does not convert past amounts.</small></Field>
+          <Field label="Number format locale"><select className="form-input" value={settings.locale || 'en-IN'} onChange={e=>setSettings(old=>({...old,locale:e.target.value}))} disabled={role!=='Admin'}><option value="en-IN">English (India)</option><option value="en-US">English (United States)</option><option value="en-GB">English (United Kingdom)</option></select></Field>
+          <Field label="Time zone"><input className="form-input" maxLength={64} value={settings.timezone || 'Asia/Kolkata'} onChange={e=>setSettings(old=>({...old,timezone:e.target.value}))} disabled={role!=='Admin'} placeholder="Asia/Kolkata"/></Field>
+          <Field label="Receipt footer"><textarea className="form-input textarea" maxLength={255} value={settings.receiptFooter || ''} onChange={e=>setSettings(old=>({...old,receiptFooter:e.target.value}))} disabled={role!=='Admin'} placeholder="Thank you for shopping with us"/></Field>
+          <Field label="Inventory valuation"><input className="form-input" value="Weighted average cost (WAC)" disabled readOnly/><small>This method is fixed for v1.</small></Field>
+        </div>
+        <div className="settings-tax-row"><div><b>Tax calculation</b><p>Tax is disabled by default. Enabling it is blocked until a tax-rate and calculation policy are approved and implemented.</p></div><StatusPill value={settings.taxEnabled ? 'ENABLED' : 'DISABLED'}/></div>
+        {role === 'Admin' && <div className="settings-live-actions"><span className="muted">Last saved: {asDate(settings.updatedAt)}</span><LiveButton type="submit" variant="primary" icon={Save} disabled={busy}>{busy?'Saving…':'Save settings'}</LiveButton></div>}
+      </form>}
+    </section>}
+
+    {page === 'Reports' && <section className="live-report-workspace">
+      <section className="panel live-section">
+        <div className="panel-head"><div><h2>Reporting period</h2><p>Figures are calculated from saved sales, return, item-cost, and payment records.</p></div><div className="toolbar-controls"><Field label="From"><input className="form-input report-date" type="date" value={reportFrom} max={reportTo} onChange={e=>setReportFrom(e.target.value)}/></Field><Field label="To"><input className="form-input report-date" type="date" value={reportTo} min={reportFrom} onChange={e=>setReportTo(e.target.value)}/></Field></div></div>
+        {pageError && <div className="live-error"><AlertTriangle size={16}/><span>{pageError}</span><LiveButton icon={RefreshCw} onClick={()=>setRefreshKey(value=>value+1)}>Refresh</LiveButton></div>}
+        {reportLoading || !reportData ? <div className="live-loading"><span className="login-status-pulse"/><span>Calculating database-backed metrics…</span></div> : <>
+          <div className="live-report-metrics">
+            <div><small>Net revenue</small><strong>{reportMoney(reportData.summary.netRevenue)}</strong><span>Sales less recorded refunds</span></div>
+            <div><small>Completed sales</small><strong>{reportData.summary.completedSales}</strong><span>{reportData.summary.completedReturns} completed returns</span></div>
+            <div><small>Gross profit</small><strong>{reportData.summary.grossProfitAvailable ? reportMoney(reportData.summary.grossProfit) : '—'}</strong><span>{reportData.summary.grossProfitAvailable ? 'Uses saved cost snapshots' : 'Withheld: provisional costs exist'}</span></div>
+            <div><small>Inventory cost value</small><strong>{reportMoney(reportData.summary.inventoryCostValue)}</strong><span>{reportData.summary.activeItems} active items</span></div>
+          </div>
+          <div className="live-report-chart-grid">
+            <div className="panel live-report-chart-panel"><div className="panel-head"><div><h2>Daily sales & refunds</h2><p>Net revenue by completion date · {reportData.period.from} to {reportData.period.to}</p></div></div>
+              <div className="live-report-chart"><ResponsiveContainer width="100%" height="100%"><BarChart data={reportData.daily} margin={{top:10,right:10,left:0,bottom:4}}><CartesianGrid strokeDasharray="3 5" vertical={false} stroke="var(--line)"/><XAxis dataKey="day" tickFormatter={shortDay} axisLine={false} tickLine={false} tick={{fill:'var(--muted)',fontSize:10}}/><YAxis axisLine={false} tickLine={false} tick={{fill:'var(--muted)',fontSize:10}} tickFormatter={value=>Number(value).toLocaleString('en-IN')}/><Tooltip contentStyle={{background:'var(--popover)',border:'1px solid var(--line)',borderRadius:10,color:'var(--text)'}} labelFormatter={shortDay} formatter={(value,name)=>[reportMoney(value),name==='sales'?'Sales':name==='refunds'?'Refunds':'Net revenue']}/><Bar dataKey="sales" name="Sales" fill="#7968e8" radius={[4,4,0,0]}/><Bar dataKey="refunds" name="Refunds" fill="#e5a2aa" radius={[4,4,0,0]}/></BarChart></ResponsiveContainer></div>
+            </div>
+            <div className="panel live-report-chart-panel"><div className="panel-head"><div><h2>Payment breakdown</h2><p>Payment method totals from completed sales in the selected period.</p></div></div>
+              {reportData.payments.length ? <div className="live-payment-breakdown">{reportData.payments.map(row=><div key={row.method}><div><b>{prettyStatus(row.method)}</b><small>{row.paymentCount} payment(s)</small></div><strong>{reportMoney(row.amount)}</strong><div className="live-payment-track"><span style={{width:(Math.max(...reportData.payments.map(x=>Number(x.amount)),1) ? Number(row.amount)/Math.max(...reportData.payments.map(x=>Number(x.amount)),1)*100 : 0)+'%'}}/></div></div>)}</div> : <BlankState title="No payments in this period" text="Completed sales will appear here."/>}
+            </div>
+          </div>
+          <div className="live-report-inventory-grid">
+            <div className="live-report-mini"><small>Low-stock items</small><b>{reportData.summary.lowStockCount}</b></div>
+            <div className="live-report-mini"><small>Out of stock</small><b>{reportData.summary.outOfStockCount}</b></div>
+            <div className="live-report-mini"><small>Negative stock</small><b>{reportData.summary.negativeStockCount}</b></div>
+            <div className="live-report-mini"><small>Open reconciliations</small><b>{reportData.summary.openReconciliations}</b></div>
+          </div>
+          <div className="info-callout"><CircleHelp size={16}/><span>{reportData.notes.join(' ')} Sales and refunds are counted on their completion dates. This report does not calculate net profit.</span></div>
+          {reportData.recentTransactions.length > 0 && <section className="panel live-section"><div className="panel-head"><div><h2>Recent sales</h2><p>Latest saved transactions in the database.</p></div><LiveButton onClick={()=>onNavigate('Transactions')}>View history</LiveButton></div><div className="table-wrap"><table><thead><tr><th>RECEIPT</th><th>CUSTOMER</th><th>CASHIER</th><th>DATE</th><th>PAYMENT</th><th>TOTAL</th></tr></thead><tbody>{reportData.recentTransactions.map(row=><tr key={row.id}><td><b>{row.receiptNo}</b></td><td>{row.customer}</td><td>{row.cashier}</td><td>{asDate(row.completedAt)}</td><td>{prettyStatus(row.paymentMethod)}</td><td>{reportMoney(row.totalAmount)}</td></tr>)}</tbody></table></div></section>}
+        </>}
+      </section>
+    </section>}
+
     {page === 'Inventory' && <section className="panel live-section"><div className="panel-head"><div><h2>Negative-stock reconciliation</h2><p>Admin overrides remain visible until physical quantities are reconciled.</p></div><StatusPill value={reconciliations.length ? 'OPEN' : 'RESOLVED'}/></div>
       {reconciliations.length ? <div className="table-wrap"><table><thead><tr><th>ITEM</th><th>RECEIPT</th><th>SHORTAGE</th><th>REASON</th><th>CREATED</th><th></th></tr></thead><tbody>{reconciliations.map(row=><tr key={row.id}><td><b>{row.itemName}</b><small className="live-cell-sub">{row.sku}</small></td><td>{row.receiptNo}</td><td><b>{row.shortageQty} units</b></td><td>{row.reason}</td><td>{asDate(row.createdAt)}</td><td>{role === 'Admin' && <LiveButton variant="primary" onClick={()=>{setForm({itemId:row.itemId,itemName:row.itemName,countedQty:String(Math.max(0, Number(items.find(i=>i.apiId === Number(row.itemId))?.stock ?? 0))),reason:''});setModal('resolve');}}>Reconcile</LiveButton>}</td></tr>)}</tbody></table></div>
       : <BlankState title="No open reconciliations" text="Negative-stock overrides will appear here for physical-count review."/>}

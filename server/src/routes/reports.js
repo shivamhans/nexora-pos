@@ -73,7 +73,7 @@ router.get('/summary', async (req, res, next) => {
       JOIN users u ON u.id = s.cashier_id LEFT JOIN payments p ON p.sale_id = s.id
       ORDER BY s.completed_at DESC LIMIT 8
     `);
-    const [settingsRows] = await pool.execute('SELECT currency_code AS currencyCode, currency_symbol AS currencySymbol FROM business_settings WHERE id = 1');
+    const [settingsRows] = await pool.execute('SELECT currency_code AS currencyCode, currency_symbol AS currencySymbol, locale FROM business_settings WHERE id = 1');
     const sale = saleRows[0], ret = returnRows[0], cost = costRows[0], inventory = inventoryRows[0];
     const netRevenue = money2(Number(sale.salesTotal) - Number(ret.refundTotal));
     const provisionalQuantity = Number(cost.provisionalQuantity || 0) + Number(restockRows[0].provisionalReturnQuantity || 0);

@@ -134,9 +134,18 @@ router.post('/', async (req, res, next) => {
       refundTotal = money2(refundTotal + line.refundAmount);
     }
     if (refundTotal > remainder) {
-      const last = resolved[resolved.length - 1];
-      last.refundAmount = money2(Math.max(0, last.refundAmount - money2(refundTotal - remainder)));
+      let excess = money2(refundTotal - remainder);
+      for (let index = resolved.length - 1; index >= 0 && excess > 0; index--) {
+        const line = resolved[index];
+        const reduction = Math.min(line.refundAmount, excess);
+        line.refundAmount = money2(Math.max(0, line.refundAmount - reduction));
+        excess = money2(Math.max(0, excess - reduction));
+      }
       refundTotal = money2(resolved.reduce((sum, line) => sum + line.refundAmount, 0));
+      if (refundTotal > remainder || excess > 0) {
+        await connection.rollback();
+        return res.status(409).json({ error: 'The remaining refund balance is smaller than the calculated return amount. Reconcile prior refunds before continuing.' });
+      }
     }
     if (refundTotal <= 0) { await connection.rollback(); return res.status(409).json({ error: 'Calculated refund amount is zero. Check the sale lines and previous refunds.' }); }
 

@@ -46,7 +46,7 @@ npm install
 npm run dev
 ```
 
-Health endpoint: http://localhost:4000/api/health
+Health endpoint: http://localhost:4001/api/health
 
 Create the first Admin account in another terminal, from the `server` folder:
 
@@ -63,7 +63,7 @@ In a separate terminal, from the repository root:
 cd client
 ```
 
-Copy `client/.env.example` to `client/.env` if you want to set an API URL explicitly. The default is `http://localhost:4000/api`.
+Copy `client/.env.example` to `client/.env` if you want to set an API URL explicitly. The default is `http://localhost:4001/api`.
 
 Then:
 

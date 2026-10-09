@@ -233,11 +233,20 @@ export default function App() {
     Promise.all([
       apiRequest('/items', { token: auth.token }),
       apiRequest('/settings', { token: auth.token }),
+      apiRequest('/auth/me', { token: auth.token }),
     ])
-      .then(([itemData, settingsData]) => {
+      .then(([itemData, settingsData, sessionData]) => {
         if (cancelled) return;
         setItems(toUiItems(itemData.items || []));
         if (settingsData.settings?.currencyCode) setCurrency(settingsData.settings.currencyCode);
+        if (sessionData.user) {
+          setRole(sessionData.user.role);
+          if (auth.user?.role !== sessionData.user.role || auth.user?.name !== sessionData.user.name || auth.user?.email !== sessionData.user.email) {
+            const currentSession = { ...auth, user: sessionData.user };
+            sessionStorage.setItem('nexora.auth', JSON.stringify(currentSession));
+            setAuth(currentSession);
+          }
+        }
       })
       .catch(() => {
         if (cancelled) return;

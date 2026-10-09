@@ -15,7 +15,10 @@ The feature branch now includes:
 - Database-backed reports for sales, refunds, inventory value, payment breakdown and daily performance. Gross profit is withheld when provisional sale costs exist; net profit is not reported without expense tracking.
 - CI checks for the frontend production build and backend JavaScript syntax.
 
-**Still not production-ready.** Returns record the declared manual settlement method but do not send funds through a payment gateway. Tax remains disabled because a tax-rate/calculation policy is not configured. The dashboard charts are illustrative and explicitly labelled as sample data. End-to-end and concurrency/security testing against your local MySQL instance has not been completed.
+**Still not production-ready.** Returns record the declared manual settlement method but do not send funds through a payment gateway. Tax remains disabled because a tax-rate/calculation policy is not configured. The signed-in dashboard fetches its metrics from saved database records; illustrative figures are shown only in the unsigned-in demo workspace. End-to-end and concurrency/security testing against your local MySQL instance has not been completed.
+
+## Item identifiers
+A **SKU (Stock Keeping Unit)** is your own internal code for identifying a product or product variant, for example `CHO-050` for a 50 g chocolate bar or `NX-1001` for a general product code. Each distinct item should have its own unique SKU in this store. A barcode is a separate scannable identifier; it does not have to be the same as the SKU.
 
 ## Stack
 - Frontend: React + Vite + Tailwind CSS, Lucide, Recharts

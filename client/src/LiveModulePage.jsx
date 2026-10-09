@@ -606,7 +606,7 @@ export default function LiveModulePage({ page, auth, items, setItems, notify, on
             <Field label="Contact person"><input className="form-input" value={form.contactName || ''} onChange={e=>setValue('contactName',e.target.value)}/></Field>
             <Field label="Address"><input className="form-input" value={form.address || ''} onChange={e=>setValue('address',e.target.value)}/></Field>
           </>}
-          <Field label="Notes"><textarea className="form-input textarea" value={form.notes || ''} onChange={e=>setValue('notes',e.target.value)}/></Field>
+          {(page === 'Suppliers' || page === 'Customers') && <Field label="Notes"><textarea className="form-input textarea" value={form.notes || ''} onChange={e=>setValue('notes',e.target.value)}/></Field>}
         </>}
       </div>}
       {page === 'Purchases' && <div className="live-purchase-form">

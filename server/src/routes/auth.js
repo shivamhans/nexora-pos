@@ -2,8 +2,13 @@ import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { pool } from '../db.js';
+import { requireAuth } from '../middleware/auth.js';
 
 const router = Router();
+router.get('/me', requireAuth, (req, res) => {
+  res.json({ user: { id: req.user.sub, name: req.user.name, email: req.user.email, role: req.user.role } });
+});
+
 router.post('/login', async (req, res, next) => {
   try {
     const email = String(req.body?.email || '').trim().toLowerCase();

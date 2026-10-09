@@ -274,3 +274,16 @@ CREATE TABLE IF NOT EXISTS negative_stock_reconciliation (
   INDEX idx_negative_reconciliation_sale (sale_id),
   INDEX idx_negative_reconciliation_status_created (status, created_at)
 ) ENGINE=InnoDB;
+
+
+-- Persist one declared manual refund settlement record per return.
+CREATE TABLE IF NOT EXISTS return_payments (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  return_id BIGINT UNSIGNED NOT NULL UNIQUE,
+  method ENUM('CASH','UPI','CARD') NOT NULL,
+  amount DECIMAL(18,2) NOT NULL,
+  reference_no VARCHAR(120) NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_return_payments_return FOREIGN KEY (return_id) REFERENCES returns(id),
+  CONSTRAINT chk_return_payments_amount CHECK (amount >= 0)
+) ENGINE=InnoDB;

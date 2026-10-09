@@ -9,11 +9,12 @@ export default function LoginScreen({ onLogin, onDemo }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [apiOnline, setApiOnline] = useState(null);
+  const [dbOnline, setDbOnline] = useState(null);
 
   useEffect(() => {
     let alive = true;
     fetch(`${API_BASE_URL}/health`).then(r => r.ok ? r.json() : Promise.reject())
-      .then(data => { if (alive) setApiOnline(data.status === 'ok'); })
+      .then(data => { if (alive) { setApiOnline(data.status === 'ok'); setDbOnline(data.database === 'connected'); } })
       .catch(() => { if (alive) setApiOnline(false); });
     return () => { alive = false; };
   }, []);
@@ -66,9 +67,9 @@ export default function LoginScreen({ onLogin, onDemo }) {
             <h2>Welcome back</h2>
             <p>Sign in with your store account to continue.</p>
           </div>
-          <div className={`api-status ${apiOnline ? 'api-status-online' : apiOnline === false ? 'api-status-offline' : ''}`}>
-            {apiOnline ? <Wifi size={15} /> : apiOnline === false ? <WifiOff size={15} /> : <span className="login-status-pulse" />}
-            <span>{apiOnline ? 'Local API connected' : apiOnline === false ? 'Local API not reachable' : 'Checking local API…'}</span>
+          <div className={`api-status ${apiOnline && dbOnline ? 'api-status-online' : apiOnline === false || dbOnline === false ? 'api-status-offline' : ''}`}>
+            {apiOnline && dbOnline ? <Wifi size={15} /> : apiOnline === false || dbOnline === false ? <WifiOff size={15} /> : <span className="login-status-pulse" />}
+            <span>{apiOnline && dbOnline ? 'API + database connected' : apiOnline === false ? 'Local API not reachable' : dbOnline === false ? 'API reachable · database offline' : 'Checking local API…'}</span>
             <small>{API_BASE_URL.replace('/api', '')}</small>
           </div>
           <form className="login-form" onSubmit={submit}>
@@ -84,7 +85,7 @@ export default function LoginScreen({ onLogin, onDemo }) {
               <span>{busy ? 'Signing in…' : 'Sign in to Nexora'}</span>{!busy && <ArrowRight size={17} />}
             </button>
           </form>
-          {apiOnline === false && <p className="login-help">Start the Express server and confirm MySQL is running. The API health check is currently unavailable.</p>}
+          {(apiOnline === false || dbOnline === false) && <p className="login-help">{apiOnline === false ? 'Start the Express server and confirm the API URL is correct.' : 'The API is running, but MySQL is not connected. Start MySQL and check server/.env.'}</p>}
           <div className="login-divider"><span /> <small>OR</small> <span /></div>
           <button className="login-demo-button" type="button" onClick={onDemo}>Explore demo workspace <ArrowRight size={16} /></button>
           <p className="login-form-foot">Demo data is illustrative and resets on refresh. It is not connected to your database.</p>

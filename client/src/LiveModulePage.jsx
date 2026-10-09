@@ -5,6 +5,7 @@ import {
   Tag, Truck, Users, Wallet, X, RotateCcw, History, CircleCheck, CircleHelp, FileText, Save
 } from 'lucide-react';
 import { apiRequest, toUiItems } from './lib/api.js';
+import { BarChart, Bar, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 
 const cash = value => '₹' + Number(value || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const asDate = value => {
@@ -14,6 +15,8 @@ const asDate = value => {
 };
 const prettyStatus = value => String(value || 'Unknown').replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
 const isManager = role => ['Admin', 'Manager'].includes(role);
+const localDateInput = date => { const copy = new Date(date); copy.setMinutes(copy.getMinutes() - copy.getTimezoneOffset()); return copy.toISOString().slice(0, 10); };
+const shortDay = value => new Date(value + 'T00:00:00').toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
 
 function LiveButton({ children, onClick, variant = 'secondary', icon: Icon, disabled, type = 'button' }) {
   return <button type={type} className={'btn btn-' + variant} onClick={onClick} disabled={disabled}>{Icon && <Icon size={16} strokeWidth={2} />}{children}</button>;
@@ -56,6 +59,15 @@ export default function LiveModulePage({ page, auth, items, setItems, notify, on
   const [receivePurchase, setReceivePurchase] = useState(null);
   const [receiveQuantities, setReceiveQuantities] = useState({});
   const [transactionDetail, setTransactionDetail] = useState(null);
+  const [staff, setStaff] = useState([]);
+  const [returnsRows, setReturnsRows] = useState([]);
+  const [settings, setSettings] = useState(null);
+  const [reportData, setReportData] = useState(null);
+  const [reportLoading, setReportLoading] = useState(false);
+  const [reportTo, setReportTo] = useState(() => localDateInput(new Date()));
+  const [reportFrom, setReportFrom] = useState(() => { const date = new Date(); date.setDate(date.getDate() - 6); return localDateInput(date); });
+  const [returnSale, setReturnSale] = useState(null);
+  const [returnLines, setReturnLines] = useState([]);
   const [pageError, setPageError] = useState('');
 
   const onUnauthorizedRef = useRef(onUnauthorized);
@@ -93,6 +105,15 @@ export default function LiveModulePage({ page, auth, items, setItems, notify, on
         } else if (page === 'Transactions') {
           const data = await get('/transactions?limit=100&offset=0');
           if (!cancelled) setTransactions(data.transactions || []);
+        } else if (page === 'Staff & Roles') {
+          const data = await get('/staff');
+          if (!cancelled) setStaff(data.staff || []);
+        } else if (page === 'Returns & Refunds') {
+          const data = await get('/returns');
+          if (!cancelled) setReturnsRows(data.returns || []);
+        } else if (page === 'Settings') {
+          const data = await get('/settings');
+          if (!cancelled) setSettings(data.settings || null);
         }
       } catch (error) {
         if (!cancelled) {
@@ -118,10 +139,12 @@ export default function LiveModulePage({ page, auth, items, setItems, notify, on
     if (page === 'Customers') return customers.filter(row => [row.name, row.email, row.phone].some(match));
     if (page === 'Purchases') return purchases.filter(row => [row.purchaseNo, row.supplier, row.status].some(match));
     if (page === 'Transactions') return transactions.filter(row => [row.receiptNo, row.customer, row.cashier, row.paymentMethod, row.method, row.status].some(match));
+    if (page === 'Staff & Roles') return staff.filter(row => [row.name, row.email, row.role].some(match));
+    if (page === 'Returns & Refunds') return returnsRows.filter(row => [row.returnNo, row.receiptNo, row.customer, row.status, row.refundMethod].some(match));
     return [];
-  }, [page, query, items, categories, suppliers, customers, purchases, transactions]);
+  }, [page, query, items, categories, suppliers, customers, purchases, transactions, staff, returnsRows]);
 
-  const currentRows = filtered || (page === 'Items' || page === 'Inventory' ? items : page === 'Categories' ? categories : page === 'Suppliers' ? suppliers : page === 'Customers' ? customers : page === 'Purchases' ? purchases : transactions);
+  const currentRows = filtered || (page === 'Items' || page === 'Inventory' ? items : page === 'Categories' ? categories : page === 'Suppliers' ? suppliers : page === 'Customers' ? customers : page === 'Purchases' ? purchases : page === 'Staff & Roles' ? staff : page === 'Returns & Refunds' ? returnsRows : transactions);
   const setValue = (key, value) => setForm(old => ({ ...old, [key]: value }));
   const openCreate = () => {
     const today = new Date();

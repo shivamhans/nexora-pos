@@ -36,4 +36,15 @@ jobs:
           node --check server/src/routes/auth.js
           node --check server/src/routes/items.js
           node --check server/src/routes/sales.js
+          node --check server/src/routes/categories.js
+          node --check server/src/routes/customers.js
+          node --check server/src/routes/suppliers.js
+          node --check server/src/routes/purchases.js
+          node --check server/src/routes/inventory.js
+          node --check server/src/routes/transactions.js
+          node --check server/src/routes/staff.js
+          node --check server/src/routes/returns.js
+          node --check server/src/routes/settings.js
+          node --check server/src/routes/reports.js
           node --check server/src/seed-admin.js
+          node --check server/src/reset-user-password.js

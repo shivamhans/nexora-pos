@@ -17,6 +17,7 @@ router.post('/login', async (req, res, next) => {
     if (!process.env.JWT_SECRET || process.env.JWT_SECRET.includes('replace-with')) {
       return res.status(500).json({ error: 'Set a secure JWT_SECRET in the server environment before logging in.' });
     }
+    await pool.execute('UPDATE users SET last_login_at = CURRENT_TIMESTAMP WHERE id = ?', [user.id]);
     const token = jwt.sign({ sub: user.id, name: user.name, role: user.role, email: user.email }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRES_IN || '8h' });
     res.json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role } });
   } catch (error) { next(error); }

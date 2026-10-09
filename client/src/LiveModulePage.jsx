@@ -559,6 +559,30 @@ export default function LiveModulePage({ page, auth, items, setItems, notify, on
       <div className="table-footer"><span>{loading ? 'Fetching from database…' : 'Showing ' + currentRows.length + ' live record' + (currentRows.length === 1 ? '' : 's')}</span><span className="muted">API connected · {role}</span></div>
     </section>}
 
+    {modal === 'return-create' && <LiveModal title="Start a return" subtitle="Find the original saved sale, select returned quantities, then record the manual refund settlement." onClose={()=>{setModal('');setReturnSale(null);setReturnLines([]);}} onSubmit={submitReturn} busy={busy} submitLabel="Complete return" wide>
+      <div className="live-return-lookup"><Field label="Original receipt number or sale ID"><input className="form-input" value={form.receiptNo || ''} onChange={e=>setValue('receiptNo',e.target.value)} placeholder="e.g. NX-260123-ABC123"/></Field><LiveButton icon={Search} onClick={loadReturnSale} disabled={busy}>Find sale</LiveButton></div>
+      {returnSale && <div className="live-return-sale-summary"><div><small>Receipt</small><b>{returnSale.receiptNo}</b></div><div><small>Customer</small><b>{returnSale.customer || 'Walk-in Customer'}</b></div><div><small>Original total</small><b>{cash(returnSale.totalAmount)}</b></div><div><small>Completed</small><b>{asDate(returnSale.completedAt)}</b></div></div>}
+      {returnSale && <div className="live-return-lines"><div className="panel-head"><div><h3>Sale lines</h3><p>Set quantity to zero for items not being returned. Previous returns are checked by the server.</p></div></div>
+        {returnLines.map((line,index)=><div className="live-return-line" key={line.saleItemId}>
+          <div className="live-return-product"><b>{line.itemName}</b><small>{line.sku} · Sold {line.soldQuantity} · {cash(line.unitPrice)} each</small></div>
+          <Field label="Qty to return"><input className="form-input" type="number" min="0" max={line.soldQuantity} step="1" value={line.quantity} onChange={e=>setReturnLines(old=>old.map((row,i)=>i===index?{...row,quantity:e.target.value}:row))}/></Field>
+          <label className="live-restock-check"><input type="checkbox" checked={line.restock} onChange={e=>setReturnLines(old=>old.map((row,i)=>i===index?{...row,restock:e.target.checked}:row))}/><span>Restock</span></label>
+          <Field label="Condition note"><input className="form-input" maxLength={300} value={line.conditionNote} onChange={e=>setReturnLines(old=>old.map((row,i)=>i===index?{...row,conditionNote:e.target.value}:row))} placeholder="Optional"/></Field>
+        </div>)}
+      </div>}
+      <div className="live-form-grid">
+        <Field label="Return reason *"><textarea className="form-input textarea" minLength={5} maxLength={500} required value={form.reason || ''} onChange={e=>setValue('reason',e.target.value)} placeholder="Reason for the return"/></Field>
+        <Field label="Manual settlement method *"><select className="form-input" value={form.refundMethod || 'Cash'} onChange={e=>setValue('refundMethod',e.target.value)}><option>Cash</option><option>UPI</option><option>Card</option></select><small>This records the declared refund method; it does not trigger a gateway transfer.</small></Field>
+        <Field label="Refund reference (optional)"><input className="form-input" maxLength={120} value={form.referenceNo || ''} onChange={e=>setValue('referenceNo',e.target.value)} placeholder="UPI/card reference"/></Field>
+      </div>
+      {!returnSale && <div className="info-callout"><CircleHelp size={16}/><span>Load a completed sale first. The return cannot be completed until the original receipt is found.</span></div>}
+    </LiveModal>}
+
+    {modal === 'staff-password' && <LiveModal title="Reset staff password" subtitle={'Set a new sign-in password for ' + (form.staffName || 'this account') + '.'} onClose={()=>setModal('')} onSubmit={resetStaffPassword} busy={busy} submitLabel="Reset password">
+      <Field label="New password *"><input className="form-input" type="password" autoComplete="new-password" minLength={12} maxLength={200} required value={form.password || ''} onChange={e=>setValue('password',e.target.value)} placeholder="At least 12 characters"/></Field>
+      <div className="warning-callout"><ShieldCheck size={16}/><span>The password will be hashed by the server. The user should sign in with this new password; the existing session role is reloaded from the database.</span></div>
+    </LiveModal>}
+
     {modal === 'create' && <LiveModal title={page === 'Items' ? 'Add item' : page === 'Categories' ? 'Add category' : page === 'Suppliers' ? 'Add supplier' : page === 'Customers' ? 'Add customer' : page === 'Staff & Roles' ? 'Invite staff member' : 'Create purchase order'} subtitle="Required fields are validated by Nexora's API." onClose={()=>setModal('')} onSubmit={submitCreate} busy={busy} submitLabel={page === 'Purchases' ? 'Create purchase order' : 'Save record'} wide={page === 'Purchases'}>
       {(page === 'Items' || page === 'Categories' || page === 'Suppliers' || page === 'Customers' || page === 'Staff & Roles') && <div className="live-form-grid">
         <Field label="Name *"><input className="form-input" required maxLength={180} value={form.name || ''} onChange={e=>setValue('name',e.target.value)} placeholder={page === 'Items' ? 'e.g. Matcha Energy Blend' : page === 'Categories' ? 'e.g. Beverages' : page === 'Suppliers' ? 'Supplier business name' : page === 'Staff & Roles' ? 'Team member name' : 'Customer full name'}/></Field>

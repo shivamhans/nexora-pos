@@ -17,7 +17,7 @@ router.post('/', async (req, res, next) => {
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
-    const [existing] = await connection.execute('SELECT id, receipt_no, total_amount FROM sales WHERE idempotency_key = ? LIMIT 1', [idempotencyKey]);
+    const [existing] = await connection.execute("SELECT s.id, s.receipt_no AS receiptNo, s.total_amount AS total, p.change_due AS changeDue, CASE p.method WHEN 'CASH' THEN 'Cash' WHEN 'UPI' THEN 'UPI' WHEN 'CARD' THEN 'Card' END AS paymentMethod FROM sales s LEFT JOIN payments p ON p.sale_id = s.id WHERE s.idempotency_key = ? LIMIT 1", [idempotencyKey]);
     if (existing[0]) { await connection.rollback(); return res.status(200).json({ sale: existing[0], duplicate: true }); }
     let subtotal = 0;
     const resolved = [];

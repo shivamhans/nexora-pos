@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertTriangle, ArrowDownRight, ArrowUpRight, Boxes, CheckCircle2, ChevronDown, ClipboardList,
   Clock3, Download, Eye, Filter, Package, PackagePlus, Plus, RefreshCw, Search, ShieldCheck,
@@ -58,6 +58,8 @@ export default function LiveModulePage({ page, auth, items, setItems, notify, on
   const [transactionDetail, setTransactionDetail] = useState(null);
   const [pageError, setPageError] = useState('');
 
+  const onUnauthorizedRef = useRef(onUnauthorized);
+  onUnauthorizedRef.current = onUnauthorized;
   const role = auth?.user?.role || 'Cashier';
   const canManage = isManager(role);
   const token = auth?.token;
@@ -95,7 +97,7 @@ export default function LiveModulePage({ page, auth, items, setItems, notify, on
       } catch (error) {
         if (!cancelled) {
           setPageError(error.message || 'Could not load records from the API.');
-          if (error.status === 401 && onUnauthorized) onUnauthorized();
+          if (error.status === 401 && onUnauthorizedRef.current) onUnauthorizedRef.current();
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -104,7 +106,7 @@ export default function LiveModulePage({ page, auth, items, setItems, notify, on
     if (token) run();
     else { setLoading(false); setPageError('Sign in to access database-backed records.'); }
     return () => { cancelled = true; };
-  }, [page, token, refreshKey, canManage, setItems, onUnauthorized]);
+  }, [page, token, refreshKey, canManage, setItems]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -144,7 +146,7 @@ export default function LiveModulePage({ page, auth, items, setItems, notify, on
       return true;
     } catch (error) {
       notify(error.message || 'Request failed.', 'warning');
-      if (error.status === 401 && onUnauthorized) onUnauthorized();
+      if (error.status === 401 && onUnauthorizedRef.current) onUnauthorizedRef.current();
       return false;
     } finally {
       setBusy(false);
@@ -197,7 +199,7 @@ export default function LiveModulePage({ page, auth, items, setItems, notify, on
       setModal('receive');
     } catch (error) {
       notify(error.message || 'Could not load purchase details.', 'warning');
-      if (error.status === 401 && onUnauthorized) onUnauthorized();
+      if (error.status === 401 && onUnauthorizedRef.current) onUnauthorizedRef.current();
     } finally { setBusy(false); }
   };
   const submitReceive = async event => {
@@ -300,7 +302,7 @@ export default function LiveModulePage({ page, auth, items, setItems, notify, on
     </div>
 
     {page === 'Inventory' && <section className="panel live-section"><div className="panel-head"><div><h2>Negative-stock reconciliation</h2><p>Admin overrides remain visible until physical quantities are reconciled.</p></div><StatusPill value={reconciliations.length ? 'OPEN' : 'RESOLVED'}/></div>
-      {reconciliations.length ? <div className="table-wrap"><table><thead><tr><th>ITEM</th><th>RECEIPT</th><th>SHORTAGE</th><th>REASON</th><th>CREATED</th><th></th></tr></thead><tbody>{reconciliations.map(row=><tr key={row.id}><td><b>{row.itemName}</b><small className="live-cell-sub">{row.sku}</small></td><td>{row.receiptNo}</td><td><b>{row.shortageQty} units</b></td><td>{row.reason}</td><td>{asDate(row.createdAt)}</td><td>{role === 'Admin' && <LiveButton variant="primary" onClick={()=>{setForm({itemId:row.itemId,itemName:row.itemName,countedQty:String(Math.max(0,Number(items.find(i=>i.apiId===Number(row.itemId))?.stock||0)),reason:''});setModal('resolve');}}>Reconcile</LiveButton>}</td></tr>)}</tbody></table></div>
+      {reconciliations.length ? <div className="table-wrap"><table><thead><tr><th>ITEM</th><th>RECEIPT</th><th>SHORTAGE</th><th>REASON</th><th>CREATED</th><th></th></tr></thead><tbody>{reconciliations.map(row=><tr key={row.id}><td><b>{row.itemName}</b><small className="live-cell-sub">{row.sku}</small></td><td>{row.receiptNo}</td><td><b>{row.shortageQty} units</b></td><td>{row.reason}</td><td>{asDate(row.createdAt)}</td><td>{role === 'Admin' && <LiveButton variant="primary" onClick={()=>{setForm({itemId:row.itemId,itemName:row.itemName,countedQty:String(Math.max(0, Number(items.find(i=>i.apiId === Number(row.itemId))?.stock ?? 0))),reason:''});setModal('resolve');}}>Reconcile</LiveButton>}</td></tr>)}</tbody></table></div>
       : <BlankState title="No open reconciliations" text="Negative-stock overrides will appear here for physical-count review."/>}
     </section>}
 

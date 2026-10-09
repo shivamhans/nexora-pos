@@ -8,19 +8,24 @@ router.use(requireAuth);
 router.get('/', async (req, res, next) => {
   try {
     const [rows] = await pool.execute(`SELECT i.id, i.name, i.sku, i.barcode, i.category_id, c.name AS category,
-      i.selling_price, i.avg_cost, i.qty_on_hand, i.reorder_threshold, i.is_active
+      i.selling_price, i.avg_cost, i.qty_on_hand, i.reorder_threshold, i.is_active, i.image_data
       FROM items i LEFT JOIN categories c ON c.id = i.category_id WHERE i.is_active = 1 ORDER BY i.name`);
     res.json({ items: rows });
   } catch (error) { next(error); }
 });
 router.post('/', allowRoles('Admin', 'Manager'), async (req, res, next) => {
   try {
-    const { name, sku: suppliedSku, categoryId = null, sellingPrice, initialCost = 0, initialQty = 0, reorderThreshold = 5, barcode = null } = req.body || {};
+    const { name, sku: suppliedSku, categoryId = null, sellingPrice, initialCost = 0, initialQty = 0, reorderThreshold = 5, barcode = null, imageData = null } = req.body || {};
     const skuInput = String(suppliedSku || '').trim();
+    const photo = imageData == null || imageData === '' ? null : String(imageData);
+    const validPhoto = photo == null || (
+      photo.length <= 700000 &&
+      /^data:image\/(?:jpeg|png|webp);base64,[A-Za-z0-9+/]+={0,2}$/.test(photo)
+    );
     if (!name?.trim() || skuInput.length > 80 || !Number.isFinite(Number(sellingPrice)) || Number(sellingPrice) < 0 ||
       !Number.isFinite(Number(initialCost)) || Number(initialCost) < 0 || !Number.isSafeInteger(Number(initialQty)) || Number(initialQty) < 0 ||
-      !Number.isSafeInteger(Number(reorderThreshold)) || Number(reorderThreshold) < 0) {
-      return res.status(400).json({ error: 'Name, a valid optional SKU (max 80 characters), valid price, non-negative cost, and non-negative whole-number quantities are required.' });
+      !Number.isSafeInteger(Number(reorderThreshold)) || Number(reorderThreshold) < 0 || !validPhoto) {
+      return res.status(400).json({ error: 'Name, a valid optional SKU, valid price and whole-number quantities are required. Product photos must be JPEG, PNG, or WebP and no larger than 700 KB after compression.' });
     }
     // SKU generation happens on the API so it remains unique across users and browsers.
     // The database unique index is the final safeguard against rare random collisions.
@@ -28,8 +33,8 @@ router.post('/', allowRoles('Admin', 'Manager'), async (req, res, next) => {
     const connection = await pool.getConnection();
     try {
       await connection.beginTransaction();
-      const [result] = await connection.execute(`INSERT INTO items (name, sku, barcode, category_id, selling_price, avg_cost, qty_on_hand, reorder_threshold, created_by)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`, [name.trim(), sku.trim(), barcode, categoryId, Number(sellingPrice), Number(initialCost), Number(initialQty), Number(reorderThreshold), req.user.sub]);
+      const [result] = await connection.execute(`INSERT INTO items (name, sku, barcode, category_id, description, image_data, selling_price, avg_cost, qty_on_hand, reorder_threshold, created_by)
+        VALUES (?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?)`, [name.trim(), sku.trim(), barcode, categoryId, photo, Number(sellingPrice), Number(initialCost), Number(initialQty), Number(reorderThreshold), req.user.sub]);
       if (Number(initialQty) > 0) {
         await connection.execute(`INSERT INTO stock_movements (item_id, movement_type, qty_delta, unit_cost_at_time, reason, user_id)
           VALUES (?, 'OPENING_STOCK', ?, ?, 'Opening stock', ?)`, [result.insertId, Number(initialQty), Number(initialCost), req.user.sub]);

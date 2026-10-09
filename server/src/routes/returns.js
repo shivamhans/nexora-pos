@@ -121,8 +121,13 @@ router.post('/', async (req, res, next) => {
         await connection.rollback();
         return res.status(409).json({ error: sold.itemName + ' has only ' + available + ' unit(s) remaining to return.', saleItemId: requested.saleItemId, available });
       }
+      if (requested.restock && Boolean(Number(sold.provisionalCost))) {
+        await connection.rollback();
+        return res.status(409).json({ error: sold.itemName + ' has a provisional cost snapshot from a negative-stock override. Resolve the cost-basis policy before restocking this returned line; no WAC estimate will be guessed.' });
+      }
       resolved.push({ ...requested, sold, refundAmount: 0 });
     }
+    resolved.sort((a, b) => Number(a.sold.itemId) - Number(b.sold.itemId));
 
     let refundTotal = 0;
     for (const line of resolved) {

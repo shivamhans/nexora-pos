@@ -50,6 +50,7 @@ export function toUiItems(rows = []) {
       cost: Number(row.avg_cost ?? 0),
       stock,
       reorderThreshold: Number(row.reorder_threshold ?? 8),
+      imageUrl: row.image_data || null,
       status: stock === 0 ? 'Out of stock' : stock <= Number(row.reorder_threshold ?? 8) ? 'Low stock' : 'In stock',
       color: productColors[index % productColors.length],
       icon: productGlyphs[index % productGlyphs.length],

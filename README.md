@@ -2,44 +2,63 @@
 
 Nexora POS is a desktop-first point-of-sale and inventory workspace built with React, Vite, Tailwind CSS, Express, and local MySQL.
 
-## Current branch: Phase 2 API integration
+## Current milestone: Phases 2–3 — operational API integration
 
-The `phase-2-api-integration` branch adds:
-- Sign-in against the Express API, with the authenticated user and role shown in the workspace.
-- Catalog loading from `GET /api/items`; connected sales use the database catalog instead of the sample catalog.
-- POS sale submission to `POST /api/sales`, including payment method, cash received/change, order discount reason, authorized price overrides, and Admin stock-override reasons.
-- A stable idempotency key for retries during the same checkout attempt.
-- A polished sign-in screen with API health status and an explicitly demo-only entry.
-- Example environment files and a GitHub Actions build/syntax workflow.
+The authenticated workspace now includes:
+- Premium sign-in screen, API/database connection status, and a demo-only entry.
+- Database-backed catalog and checkout, with authorization enforced by the API.
+- Items and categories, including opening stock and active/inactive status.
+- Supplier and customer directories; POS can attach a selected customer to a sale.
+- Purchase orders with a separate receiving step. Stock quantity and weighted-average cost (WAC) change only when received quantities are recorded.
+- Inventory adjustments and a stock movement history.
+- An Admin/Manager-visible negative-stock reconciliation queue; Admins can resolve it using a physical count.
+- Searchable transaction history and stored line/payment details.
+- Local environment examples, setup guidance, and GitHub Actions build/syntax checks.
 
-**This is still not a production-ready POS.** Several pages, dashboard charts, customers, purchases, returns, settings and reports remain demo/scaffold screens. The dashboard metrics are illustrative; they must not be treated as real sales totals or profit. Real tax calculation, purchase receiving/WAC updates, reconciliation queue processing, complete returns/refunds, and end-to-end/security tests are not finished.
+**This is not yet a production-ready POS.** The dashboard figures/charts remain illustrative sample data, and a banner warns authenticated users about this. Staff management, returns/refunds, persisted settings, and database-backed reporting are not complete. Tax calculation, split payments, freight capitalization into WAC, and thermal receipt hardware support are not implemented. Automated CI checks syntax and builds; it does not run end-to-end tests against your local MySQL instance.
 
 ## Stack
 - Frontend: React + Vite + Tailwind CSS, Lucide, Recharts
 - Backend: Node.js + Express REST API
 - Database: local MySQL 8+
-- The browser calls the Express API; it must never connect directly to MySQL.
+- Browser requests go to Express. The browser must never connect directly to MySQL.
 
 ## Run locally
 Requirements: Node.js 20+ (22 recommended) and MySQL 8+.
 
-### 1. Start MySQL
-Start your local MySQL service. Import the schema once from the repository root:
+### 1. Configure the database
+Start your local MySQL service. Import the schema from the repository root:
 
 ```bash
 mysql -u root -p < database/schema.sql
 ```
 
-Alternatively, open `database/schema.sql` in MySQL Workbench and execute it. The schema creates the `nexora_pos_cg` database.
+Alternatively, execute `database/schema.sql` in MySQL Workbench. The schema creates/uses `nexora_pos_cg`.
+
+If you imported the schema before the Phase 3 reconciliation change, run the schema again. Its `CREATE TABLE IF NOT EXISTS` statements create the new `negative_stock_reconciliation` table without dropping existing tables/records.
 
 ### 2. Configure and start the API
-In a terminal:
+Open a terminal in the `server` directory. Create `server/.env` from `server/.env.example` (PowerShell: `Copy-Item .env.example .env`) and set your local MySQL credentials.
 
-```bash
-cd server
+```dotenv
+PORT=4001
+CLIENT_ORIGIN=http://localhost:5173,http://localhost:5174
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_USER=root
+DB_PASSWORD=your-mysql-password
+DB_NAME=nexora_pos_cg
+JWT_SECRET=replace-with-a-long-random-secret
+JWT_EXPIRES_IN=8h
 ```
 
-Copy `server/.env.example` to `server/.env` (on Windows PowerShell, use `Copy-Item .env.example .env`) and update the MySQL credentials. Replace `JWT_SECRET` with a long, random secret before signing in. Then:
+Replace `JWT_SECRET` with a long, unique random value before login. On PowerShell, generate one with:
+
+```powershell
+node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
+```
+
+Keep the API running:
 
 ```bash
 npm install
@@ -48,63 +67,66 @@ npm run dev
 
 Health endpoint: http://localhost:4001/api/health
 
-Create the first Admin account in another terminal, from the `server` folder:
+### 3. Create your Nexora Admin login
+The `DB_PASSWORD` in `server/.env` is the **MySQL password**, not the password you use on the Nexora sign-in screen.
+
+From the `server` directory, run this once to create your application account:
 
 ```bash
-node src/seed-admin.js "Store Admin" admin@example.com "use-a-strong-unique-password"
+node src/seed-admin.js "Store Admin" admin@example.com "replace-with-your-own-strong-password"
 ```
 
-Use a strong password of at least 12 characters. Keep it private.
+Replace the sample password with your own unique password of at least 12 characters. Then sign in using `admin@example.com` and that same password.
 
-### 3. Start the frontend
-In a separate terminal, from the repository root:
+If the command reports that the email already exists, that account has already been created; use its existing password or reset it before trying again. If login still fails after account creation, confirm the server is using the expected `nexora_pos_cg` database and restart the API after changing `JWT_SECRET`.
 
-```bash
-cd client
+### 4. Start the frontend
+In a separate terminal, open the `client` directory. Copy `client/.env.example` to `client/.env` if you need to specify the API URL:
+
+```dotenv
+VITE_API_URL=http://localhost:4001/api
 ```
 
-Copy `client/.env.example` to `client/.env` if you want to set an API URL explicitly. The default is `http://localhost:4001/api`.
-
-Then:
+Then run:
 
 ```bash
 npm install
 npm run dev
 ```
 
-Open the Vite URL printed in the terminal, normally http://localhost:5173. Sign in with the Admin credentials you created. Select **Explore demo workspace** only to inspect the design using sample data.
+Open the Vite URL printed by the terminal (commonly `http://localhost:5173`, or `5174` if 5173 is already occupied). The API allows local `localhost`/ `127.0.0.1` development origins. Select **Explore demo workspace** only when you want to inspect sample data without signing in.
 
 ## Confirmed v1 business rules
 - One business and one store for v1.
 - One configurable base currency; no foreign-exchange conversion.
 - Tax is configurable and disabled by default.
 - Only Admin/Manager can apply discounts or override prices; reasons and audit records are required.
-- No credit sales; full payment is required before a sale completes.
-- Weighted average cost (WAC) is the stock valuation method.
-- Negative stock is blocked by default. An Admin override requires a warning, a reason, an audit record, and reconciliation follow-up.
-- Stock updates when a purchase is received, not when it is merely ordered.
-- Stock changes use an append-only movement ledger.
-- Use MySQL DECIMAL for monetary values. Keep historical sale cost snapshots. Sale, sale lines, payment and stock changes must be atomic.
-- Do not claim net profit without an expenses module. Gross profit must only be shown when cost data is available.
+- No credit sales; full payment is required before completing a sale.
+- Weighted average cost (WAC) is the inventory valuation method.
+- Negative stock is blocked by default. Admin override requires a warning and reason, creates an audit record and reconciliation entry, and must be followed up with a physical count.
+- Purchase orders do not affect stock until received.
+- Stock changes are recorded in a movement ledger.
+- Use MySQL DECIMAL for money. Historical sales keep cost snapshots. Sale, lines, payment, stock movements, and reconciliation entries must be committed atomically.
+- Do not claim net profit without an expenses module. Gross profit should only be shown when cost data is reliable.
 
-## Remaining phases
-1. Finish UI polish and responsive review.
-2. Connect core UI screens to authentication/API state and database-backed sales/catalog.
-3. Complete items, categories, suppliers, purchase receiving, WAC updates, stock adjustments, customer and transaction history.
-4. Complete returns/refunds, staff management, configurable settings, report endpoints and audit-log views.
-5. Add an explicit negative-stock reconciliation queue and settle the cost-basis policy for overridden sales.
-6. Add tests for permissions, WAC calculations, concurrent stock locking, duplicate submissions, rollback behavior and secure configuration; complete a security review before production.
+## Still to implement
+1. Staff account management and persisted role administration.
+2. Returns/refunds with partial-return validation and refund settlement.
+3. Persisted currency, tax, business profile and receipt settings.
+4. Database-backed dashboard/report metrics and export.
+5. Automated tests for permissions, WAC calculations, concurrency/stock locks, duplicate submissions, rollback, reconciliation, and security.
+6. Responsive/manual testing against an actual local MySQL instance and a security review before real use.
 
 ## Decisions intentionally left open
 - Split payments.
-- Negative-stock cost treatment and reconciliation policy.
+- Treatment of provisional negative-stock sale costs and whether historical cost snapshots should ever be restated.
 - Capitalizing freight/purchase-side charges into WAC.
-- Damaged-stock write-off accounting.
-- Line-level discounts (current proposal is order-level only).
+- Damaged-stock write-off accounting/reporting.
+- Line-level discounts (current design uses order-level only).
 - Thermal receipt printer/hardware support.
 - Tax rules if optional tax is enabled.
 
 ## Security reminders
 - Never commit `.env`, passwords, tokens, keys, or real customer/business exports.
-- Authentication and permissions must be enforced by the API. Role preview exists only in demo mode.
-- Do not use this branch for live transactions until the unfinished modules, tests and security checks are complete.
+- Server-side permission checks are mandatory. Role preview exists only in demo mode.
+- Do not use this branch for live sales or real business records until the remaining workflows, integration tests, and security checks are complete.

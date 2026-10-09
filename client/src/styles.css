@@ -20,7 +20,26 @@
 @media(max-width:760px){.sidebar{transform:translateX(-105%);width:270px;z-index:90;box-shadow:10px 0 50px #0001}.sidebar.sidebar-open{transform:translateX(0)}.sidebar-close{display:inline-grid!important}.mobile-scrim{display:block;position:fixed;inset:0;z-index:85;background:rgba(20,16,39,.35);border:0;backdrop-filter:blur(2px)}.main-area{margin-left:0}.topbar{height:62px;padding:0 15px}.mobile-menu{display:inline-grid}.topbar-left{gap:7px}.topbar-actions{gap:6px}.global-search{width:37px;justify-content:center;padding:0}.global-search span,.global-search kbd{display:none}.topbar-divider{display:none}.role-switch{display:none}.page-content{padding:22px 14px 15px}.section-title{align-items:flex-start;flex-direction:column;margin-bottom:20px;gap:14px}.section-title h1,.pos-heading h1{font-size:24px}.title-actions{width:100%;justify-content:flex-start}.title-actions .btn{flex:0 1 auto}.stats-grid{gap:10px;margin-bottom:12px}.stat-card{padding:13px;border-radius:14px}.stat-top{margin-bottom:12px}.stat-icon{width:31px;height:31px}.trend{font-size:8px;padding:4px}.stat-label{font-size:10px}.stat-value{font-size:19px}.stat-note{font-size:8px;line-height:1.4}.dashboard-main-grid,.dashboard-bottom-grid{grid-template-columns:minmax(0,1fr);gap:12px;margin-bottom:12px}.chart-panel,.payment-panel,.recent-panel,.low-stock-panel{padding:15px}.sales-chart{height:205px}.donut-wrap{height:170px}.dashboard-bottom-grid .recent-panel{padding-left:0;padding-right:0}.recent-panel>.panel-head{padding:0 15px}.recent-panel .table-wrap{max-width:100%}.app-footer{align-items:flex-start;flex-direction:column;gap:9px;padding-top:19px}.inventory-toolbar{padding:12px;gap:12px}.tabs{max-width:100%;overflow:auto;width:100%;scrollbar-width:none}.tab{font-size:9px;padding:8px}.toolbar-controls{flex-wrap:wrap}.toolbar-controls .search-box.compact{width:100%;flex-basis:100%}.select-control{flex:1;max-width:none}.inventory-table{overflow-x:auto}.inventory-table table{min-width:790px}.table-footer{padding:12px}.pos-heading{align-items:flex-start;flex-direction:column}.pos-session{align-self:flex-start}.pos-layout{gap:12px}.pos-catalog{padding:13px 12px 0;min-height:430px}.pos-product-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.product-art{height:93px}.add-product{top:79px}.pos-cart{padding:15px 13px;min-height:470px}.cart-items{max-height:280px}.settings-layout{grid-template-columns:minmax(0,1fr)}.settings-nav{display:flex;overflow:auto;gap:4px}.settings-nav-item{white-space:nowrap;width:auto;flex-shrink:0}.settings-content{padding:15px}.reports-grid{grid-template-columns:minmax(0,1fr)}.report-chart{height:230px}.modal{padding:18px}.toast{right:12px;bottom:12px}.search-backdrop{padding-top:12vh}.notification-popover{right:-40px;width:min(300px,calc(100vw - 30px))}}
 @media(max-width:420px){.breadcrumb{font-size:10px;gap:5px}.breadcrumb b{font-size:10px}.topbar-actions{gap:3px}.topbar{padding:0 10px}.avatar{height:27px;width:27px}.section-title h1{font-size:22px}.title-actions .btn{font-size:9px;padding:0 9px}.stats-grid{gap:8px}.stat-value{font-size:17px}.stat-card{padding:11px}.stat-top{align-items:flex-start}.trend{font-size:7px;gap:0}.pos-product-info>b{font-size:9px}.pos-product-info strong{font-size:10px}.pos-product-info small{font-size:7px}.payment-method-grid{gap:6px}.modal-actions .btn{font-size:9px;padding:0 9px}.modal-actions .btn-primary{max-width:70%}.success-actions{width:100%}.success-actions .btn{flex:1}.pos-success{padding:22px 14px}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
-@media print{body{background:white!important}.sidebar,.topbar,.page-content,.success-actions,.demo-note,.modal-backdrop,.toast{display:none!important}.app-shell{background:white!important}.main-area{margin:0}.pos-success{display:flex!important;max-width:none;border:0;box-shadow:none;padding:0}.receipt-card{border:1px dashed #bbb;color:#222}.receipt-number,.receipt-total,.receipt-lines,.receipt-brand{border-color:#ccc}}
+@media print{
+  @page{size:auto;margin:9mm}
+  html,body,#root{height:auto!important;min-height:0!important;background:#fff!important}
+  body *{visibility:hidden!important}
+  .printable-receipt,.printable-receipt *{visibility:visible!important}
+  .printable-receipt{
+    display:block!important;position:fixed!important;left:50%!important;top:0!important;transform:translateX(-50%)!important;
+    width:76mm!important;max-width:76mm!important;min-width:0!important;height:auto!important;max-height:none!important;
+    margin:0!important;padding:5mm!important;border:0!important;border-radius:0!important;box-shadow:none!important;
+    background:#fff!important;color:#111!important;font:9pt/1.4 Arial,sans-serif!important;overflow:visible!important
+  }
+  .printable-receipt *{color:#111!important;box-shadow:none!important;text-shadow:none!important}
+  .printable-receipt img{display:block!important;max-width:100%!important}
+  .sidebar,.topbar,.success-actions,.demo-note,.toast,.modal-actions{display:none!important}
+  .app-shell,.main-area,.page-content,.pos-page,.pos-success,.modal-backdrop,.modal,.live-modal{
+    display:block!important;position:static!important;width:auto!important;min-height:0!important;height:auto!important;max-width:none!important;max-height:none!important;
+    margin:0!important;padding:0!important;overflow:visible!important;background:#fff!important;border:0!important;box-shadow:none!important;backdrop-filter:none!important
+  }
+  .print-only.printable-receipt{display:block!important}
+}
 
 
 /* Phase 2 — authentication surface */
@@ -228,3 +247,39 @@
 .live-restock-check input{accent-color:var(--violet);width:14px;height:14px}
 @media(max-width:1040px){.live-report-chart-grid{grid-template-columns:1fr}.live-report-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.live-report-chart{height:250px}}
 @media(max-width:720px){.live-report-metrics{padding:0 14px 14px;gap:8px}.live-report-metrics>div{padding:12px}.live-report-chart-grid{margin:0 14px 14px}.live-report-inventory-grid{grid-template-columns:repeat(2,minmax(0,1fr));margin:0 14px 14px}.report-date{min-width:0;width:100%}.live-return-lookup{grid-template-columns:1fr}.live-return-sale-summary{grid-template-columns:repeat(2,minmax(0,1fr))}.live-return-line{grid-template-columns:minmax(0,1fr) minmax(90px,.5fr);align-items:start}.live-return-product{grid-column:1/-1}.live-restock-check{align-self:center}.live-return-line .live-field:last-child{grid-column:1/-1}.table-action-group{min-width:200px}.settings-live-form{padding:14px}.settings-live-actions{align-items:flex-start;flex-direction:column}}
+
+
+/* Native select popups need an explicit dark color scheme on Chromium/Windows. */
+select{color-scheme:light}
+.theme-dark select,.theme-dark select option,.theme-dark select optgroup{color-scheme:dark;background-color:var(--panel-solid);color:var(--text)}
+.theme-dark input,.theme-dark textarea{color-scheme:dark}
+.theme-dark .live-field select,.theme-dark .form-input,.theme-dark .staff-role-select{background-color:var(--panel-solid);color:var(--text)}
+.theme-dark option:checked{background-color:var(--violet-soft);color:var(--text)}
+.photo-upload-control{display:flex;align-items:center;gap:9px;min-width:0}
+.photo-upload-control>svg{flex:0 0 auto;color:var(--violet)}
+.photo-file-input{min-width:0;padding:7px!important;font-size:10px!important}
+.photo-file-input::file-selector-button{margin-right:10px;padding:7px 9px;border:1px solid var(--line-strong);border-radius:7px;background:var(--surface-2);color:var(--text);font-size:10px;font-weight:650;cursor:pointer}
+.item-photo-preview{grid-column:1/-1;display:flex;align-items:center;gap:13px;padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
+.item-photo-preview>img{width:84px;height:72px;object-fit:contain;border:1px solid var(--line);border-radius:9px;background:#fff}
+.item-photo-preview>div{display:flex;flex-direction:column;align-items:flex-start;gap:5px;min-width:0}
+.item-photo-preview b{font-size:11px;color:var(--text)}
+.item-photo-preview small{font-size:10px;color:var(--muted);line-height:1.5}
+.item-table-thumb{width:36px;height:36px;object-fit:contain;border:1px solid var(--line);border-radius:8px;background:#fff;vertical-align:middle;margin-right:9px}
+.product-art .product-photo{width:100%;height:100%;object-fit:contain;display:block;background:#fff}
+.cart-line-art .cart-line-photo{width:100%;height:100%;object-fit:contain;display:block;background:#fff;border-radius:inherit}
+.stock-photo-mini{width:100%;height:100%;object-fit:contain;background:#fff;border-radius:inherit}
+.print-receipt-brand{display:flex;flex-direction:column;align-items:center;text-align:center;border-bottom:1px dashed #888;padding-bottom:9px;margin-bottom:10px}
+.print-receipt-brand strong{font-size:15pt;letter-spacing:1.5px}
+.print-receipt-brand small{font-size:7pt;letter-spacing:1px}
+.print-receipt-meta{display:flex;flex-direction:column;gap:4px;margin:8px 0}
+.print-receipt-meta>div{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;font-size:8pt}
+.print-receipt-meta>div>*:last-child{text-align:right;overflow-wrap:anywhere}
+.print-receipt-lines{border-top:1px dashed #888;border-bottom:1px dashed #888;padding:7px 0;margin:10px 0}
+.print-receipt-line{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:3px 8px;padding:5px 0;font-size:8pt}
+.print-receipt-line>small{grid-column:1/-1;font-size:7pt;color:#444!important}
+.print-receipt-totals{display:flex;flex-direction:column;gap:5px;padding:7px 0;border-bottom:1px dashed #888}
+.print-receipt-totals>div{display:flex;justify-content:space-between;gap:8px;font-size:8pt}
+.print-receipt-totals .print-grand-total{font-size:11pt;font-weight:800;padding-top:7px;border-top:1px dashed #888;margin-top:3px}
+.print-receipt-footer{text-align:center;font-size:8pt;padding-top:10px;margin-top:8px;border-top:1px dashed #888}
+.transaction-print-receipt{display:none}
+@media(max-width:600px){.photo-upload-control{align-items:flex-start;flex-direction:column}.item-photo-preview{align-items:flex-start}.photo-file-input{width:100%}}

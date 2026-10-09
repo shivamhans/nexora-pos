@@ -198,7 +198,7 @@ export default function LiveModulePage({ page, auth, items, setItems, notify, on
     let payload = {};
     if (page === 'Items') {
       payload = {
-        name: form.name, sku: form.sku, categoryId: form.categoryId ? Number(form.categoryId) : null,
+        name: form.name, sku: String(form.sku || '').trim() || undefined, categoryId: form.categoryId ? Number(form.categoryId) : null,
         sellingPrice: Number(form.sellingPrice), initialCost: Number(form.initialCost || 0),
         initialQty: Number(form.initialQty || 0), reorderThreshold: Number(form.reorderThreshold || 5),
         barcode: form.barcode || null,
@@ -588,7 +588,7 @@ export default function LiveModulePage({ page, auth, items, setItems, notify, on
       {(page === 'Items' || page === 'Categories' || page === 'Suppliers' || page === 'Customers' || page === 'Staff & Roles') && <div className="live-form-grid">
         <Field label="Name *"><input className="form-input" required maxLength={180} value={form.name || ''} onChange={e=>setValue('name',e.target.value)} placeholder={page === 'Items' ? 'e.g. Matcha Energy Blend' : page === 'Categories' ? 'e.g. Beverages' : page === 'Suppliers' ? 'Supplier business name' : page === 'Staff & Roles' ? 'Team member name' : 'Customer full name'}/></Field>
         {page === 'Items' && <>
-          <Field label="SKU *"><input className="form-input" required maxLength={80} value={form.sku || ''} onChange={e=>setValue('sku',e.target.value)} placeholder="NX-1009"/></Field>
+          <Field label="SKU (optional)"><input className="form-input" maxLength={80} value={form.sku || ''} onChange={e=>setValue('sku',e.target.value)} placeholder="Leave blank to generate automatically"/><small>If left blank, Nexora creates a unique SKU when saving.</small></Field>
           <Field label="Category"><select className="form-input" value={form.categoryId || ''} onChange={e=>setValue('categoryId',e.target.value)}><option value="">Uncategorized</option>{categories.filter(x=>Number(x.isActive)).map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></Field>
           <Field label="Selling price *"><input className="form-input" type="number" required min="0" step="0.01" value={form.sellingPrice || ''} onChange={e=>setValue('sellingPrice',e.target.value)}/></Field>
           <Field label="Opening unit cost"><input className="form-input" type="number" min="0" step="0.0001" value={form.initialCost || ''} onChange={e=>setValue('initialCost',e.target.value)}/></Field>

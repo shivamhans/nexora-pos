@@ -28,6 +28,10 @@ app.use(cors({
   },
 }));
 app.use(express.json({ limit: '1mb' }));
+app.get('/', (_req, res) => {
+  res.json({ service: 'nexora-pos-api', status: 'ok', health: '/api/health' });
+});
+
 app.get('/api/health', async (_req, res) => {
   let database = 'disconnected';
   try { await pool.query('SELECT 1'); database = 'connected'; } catch { /* health endpoint reports service state */ }

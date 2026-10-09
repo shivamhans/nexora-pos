@@ -18,7 +18,7 @@ The feature branch now includes:
 **Still not production-ready.** Returns record the declared manual settlement method but do not send funds through a payment gateway. Tax remains disabled because a tax-rate/calculation policy is not configured. The signed-in dashboard fetches its metrics from saved database records; illustrative figures are shown only in the unsigned-in demo workspace. End-to-end and concurrency/security testing against your local MySQL instance has not been completed.
 
 ## Item identifiers
-When creating an item, the SKU field is optional. If you leave it blank, the API generates a unique `NX-` SKU at save time. If you enter your own SKU, it must be unique. A **SKU (Stock Keeping Unit)** is your internal code for identifying a product or product variant, for example `CHO-050` for a 50 g chocolate bar or `NX-1001` for a general product code. Each distinct item should have its own unique SKU. A barcode is a separate scannable identifier; it does not have to be the same as the SKU.
+When creating an item, the SKU field is optional. If you leave it blank, the API generates a unique `NX-` SKU at save time. If you enter your own SKU, it must be unique. A **SKU (Stock Keeping Unit)** is your internal code for identifying a product or product variant, for example `CHO-050` for a 50 g chocolate bar or `NX-1001` for a general product code. Each distinct item should have its own unique SKU. A barcode is a separate scannable identifier; it does not have to be the same as the SKU. Item creation also supports an optional product photo: select a JPEG, PNG or WebP image (up to 8 MB before resizing). The browser compresses it to a small JPEG and the API stores it in MySQL, so no separate uploads folder is needed.
 
 ## Stack
 - Frontend: React + Vite + Tailwind CSS, Lucide, Recharts
@@ -39,7 +39,7 @@ mysql -u root -p < database/schema.sql
 Alternatively, execute `database/schema.sql` in MySQL Workbench. It targets `nexora_pos_cg`. You can re-run it after updates: the `CREATE TABLE IF NOT EXISTS` statements preserve existing tables/rows and create the new `negative_stock_reconciliation` and `return_payments` tables if missing. Back up data before applying schema changes to any database with valuable records.
 
 ### 1a. Apply the Phase 4 upgrade migration
-If your browser displays errors like `Table 'nexora_pos_cg.negative_stock_reconciliation' doesn't exist` or `Table 'nexora_pos_cg.return_payments' doesn't exist`, your existing database predates the newer tables. In MySQL Workbench, open `database/phase4-migration.sql` from this branch and execute it. It uses `CREATE TABLE IF NOT EXISTS` for those two tables and does not drop existing records. Then restart the API and click Retry in the affected screen.
+If your browser displays errors like `Table 'nexora_pos_cg.negative_stock_reconciliation' doesn't exist` or `Table 'nexora_pos_cg.return_payments' doesn't exist`, your existing database predates the newer tables. In MySQL Workbench, open `database/phase4-migration.sql` from this branch and execute it. It safely creates `negative_stock_reconciliation` and `return_payments` if missing, and adds the optional `items.image_data` column if missing. It does not drop existing records. Run it once after downloading this update, then restart the API.
 
 ### 2. Configure and start the API
 In the `server` folder, copy `server/.env.example` to `server/.env` (PowerShell from that folder: `Copy-Item .env.example .env`).
@@ -126,6 +126,7 @@ Open the Vite URL printed in the terminal (normally `http://localhost:5173`, or 
 - A returned item restocked into inventory uses the original sale cost snapshot for the WAC update. Lines whose cost snapshot is provisional from a negative-stock override are blocked from restocking until that cost-basis policy is resolved; unresolved negative stock must also be reconciled first.
 - Damaged-stock write-offs are Admin-only and logged; full expense/write-off reporting remains incomplete.
 - Staff password resets and role changes are audited; disabled accounts are denied API requests.
+- Printing now uses an explicit receipt-only layout for POS completion and transaction history; verify paper size and printer scaling in the browser print dialog.
 - Thermal receipt hardware, tax rules, and full audit-log browsing remain incomplete.
 
 ## Before real store use

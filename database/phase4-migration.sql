@@ -3,6 +3,21 @@
 -- added after the original schema. Does not drop, rename, or rewrite existing rows.
 USE nexora_pos_cg;
 
+-- Add optional item photos safely when upgrading an existing database.
+SET @nexora_has_item_image = (
+  SELECT COUNT(*) FROM information_schema.columns
+  WHERE table_schema = DATABASE() AND table_name = 'items' AND column_name = 'image_data'
+);
+SET @nexora_item_image_sql = IF(
+  @nexora_has_item_image = 0,
+  'ALTER TABLE items ADD COLUMN image_data MEDIUMTEXT NULL AFTER description',
+  'SELECT ''items.image_data already exists'' AS migration_status'
+);
+PREPARE nexora_item_image_stmt FROM @nexora_item_image_sql;
+EXECUTE nexora_item_image_stmt;
+DEALLOCATE PREPARE nexora_item_image_stmt;
+
+
 CREATE TABLE IF NOT EXISTS negative_stock_reconciliation (
   id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
   sale_id BIGINT UNSIGNED NOT NULL,

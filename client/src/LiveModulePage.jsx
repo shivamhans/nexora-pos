@@ -584,7 +584,7 @@ export default function LiveModulePage({ page, auth, items, setItems, notify, on
         {page === 'Purchases' && <><th>PURCHASE</th><th>SUPPLIER</th><th>ORDER DATE</th><th>LINES</th><th>TOTAL</th><th>STATUS</th><th></th></>}
         {page === 'Transactions' && <><th>RECEIPT</th><th>CUSTOMER</th><th>CASHIER</th><th>DATE</th><th>PAYMENT</th><th>TOTAL</th><th>STATUS</th><th></th></>}
       </tr></thead><tbody>
-        {page === 'Items' && currentRows.map(row=><tr key={row.id}><td><b>{row.name}</b><small className="live-cell-sub">{row.displayId || row.id}</small></td><td>{row.sku}</td><td>{row.category}</td><td>{cash(row.price)}</td><td>{cash(row.cost)}</td><td>{row.stock}</td><td><StatusPill value={row.stock === 0 ? 'OUT_OF_STOCK' : row.stock <= 8 ? 'LOW_STOCK' : 'IN_STOCK'}/></td><td>{canManage && <button className="icon-button small" onClick={()=>onNavigate('Inventory')} title="Adjust stock"><Boxes size={16}/></button>}</td></tr>)}
+        {page === 'Items' && currentRows.map(row=><tr key={row.id}><td>{row.imageUrl && <img className="item-table-thumb" src={row.imageUrl} alt="" loading="lazy"/>}<b>{row.name}</b><small className="live-cell-sub">{row.displayId || row.id}</small></td><td>{row.sku}</td><td>{row.category}</td><td>{cash(row.price)}</td><td>{cash(row.cost)}</td><td>{row.stock}</td><td><StatusPill value={row.stock === 0 ? 'OUT_OF_STOCK' : row.stock <= 8 ? 'LOW_STOCK' : 'IN_STOCK'}/></td><td>{canManage && <button className="icon-button small" onClick={()=>onNavigate('Inventory')} title="Adjust stock"><Boxes size={16}/></button>}</td></tr>)}
         {page === 'Categories' && currentRows.map(row=><tr key={row.id}><td><b>{row.name}</b></td><td>{row.itemCount}</td><td>{row.description || '—'}</td><td><StatusPill value={Number(row.isActive) ? 'ACTIVE' : 'INACTIVE'}/></td><td>{canManage && <LiveButton onClick={()=>toggleActive('categories',row)}>{Number(row.isActive) ? 'Deactivate' : 'Activate'}</LiveButton>}</td></tr>)}
         {page === 'Suppliers' && currentRows.map(row=><tr key={row.id}><td><b>{row.name}</b><small className="live-cell-sub">{row.contactName || 'Supplier'}</small></td><td>{row.contactName || '—'}</td><td>{row.email || '—'}<small className="live-cell-sub">{row.phone || ''}</small></td><td>{row.purchaseCount || 0}</td><td><StatusPill value={Number(row.isActive) ? 'ACTIVE' : 'INACTIVE'}/></td><td>{canManage && <LiveButton onClick={()=>toggleActive('suppliers',row)}>{Number(row.isActive) ? 'Deactivate' : 'Activate'}</LiveButton>}</td></tr>)}
         {page === 'Customers' && currentRows.map(row=><tr key={row.id}><td><b>{row.name}</b><small className="live-cell-sub">{row.email || 'Customer'}</small></td><td>{row.phone || '—'}</td><td>{row.orderCount || 0}</td><td>{cash(row.totalSpent)}</td><td>{asDate(row.lastPurchaseAt)}</td><td>{canManage && <LiveButton onClick={()=>toggleActive('customers',row)}>{Number(row.isActive) ? 'Deactivate' : 'Activate'}</LiveButton>}</td></tr>)}
@@ -689,11 +689,37 @@ export default function LiveModulePage({ page, auth, items, setItems, notify, on
     </LiveModal>}
 
     {modal === 'transaction' && transactionDetail && <div className="modal-backdrop" onClick={()=>setModal('')}><div className="modal live-modal live-modal-wide" onClick={e=>e.stopPropagation()}><div className="modal-head"><div><div className="eyebrow">SAVED TRANSACTION</div><h2>{transactionDetail.receiptNo}</h2><p>{asDate(transactionDetail.completedAt)} · {transactionDetail.customer || 'Walk-in Customer'} · {transactionDetail.cashier || 'Unknown cashier'}</p></div><button className="icon-button" onClick={()=>setModal('')}><X size={18}/></button></div>
+      <div className="print-only printable-receipt transaction-print-receipt">
+        <div className="print-receipt-brand"><strong>NEXORA</strong><small>POINT OF SALE · SALES RECEIPT</small></div>
+        <div className="print-receipt-meta">
+          <div><span>Receipt</span><b>{transactionDetail.receiptNo}</b></div>
+          <div><span>Date</span><b>{asDate(transactionDetail.completedAt)}</b></div>
+          <div><span>Customer</span><b>{transactionDetail.customer || 'Walk-in Customer'}</b></div>
+          <div><span>Cashier</span><b>{transactionDetail.cashier || '—'}</b></div>
+        </div>
+        <div className="print-receipt-lines">
+          {(transactionDetail.lines || []).map(line=><div className="print-receipt-line" key={line.saleItemId}>
+            <span>{line.itemName} × {line.quantity}</span><b>{cash(Number(line.unitPrice) * Number(line.quantity) - Number(line.discountAmount || 0))}</b>
+            <small>{line.sku} · {cash(line.unitPrice)} each</small>
+          </div>)}
+        </div>
+        <div className="print-receipt-totals">
+          <div><span>Subtotal</span><b>{cash(transactionDetail.subtotal)}</b></div>
+          <div><span>Discount</span><b>−{cash(transactionDetail.discountTotal)}</b></div>
+          <div><span>Tax</span><b>{cash(transactionDetail.taxTotal)}</b></div>
+          <div className="print-grand-total"><span>Total paid</span><b>{cash(transactionDetail.totalAmount)}</b></div>
+        </div>
+        <div className="print-receipt-meta">
+          {(transactionDetail.payments || []).map(payment=><div key={payment.id}><span>{prettyStatus(payment.method)}{payment.referenceNo ? ' · ' + payment.referenceNo : ''}</span><b>{cash(payment.amountReceived)}</b></div>)}
+          {(transactionDetail.payments || []).some(payment=>Number(payment.changeDue)>0) && <div><span>Change due</span><b>{cash((transactionDetail.payments || []).reduce((sum,payment)=>sum+Number(payment.changeDue||0),0))}</b></div>}
+        </div>
+        <div className="print-receipt-footer">Thank you for shopping with us.</div>
+      </div>
       <div className="live-detail-summary"><div><small>Subtotal</small><b>{cash(transactionDetail.subtotal)}</b></div><div><small>Discount</small><b>−{cash(transactionDetail.discountTotal)}</b></div><div><small>Tax</small><b>{cash(transactionDetail.taxTotal)}</b></div><div><small>Total paid</small><b>{cash(transactionDetail.totalAmount)}</b></div></div>
       <div className="table-wrap"><table><thead><tr><th>ITEM</th><th>SKU</th><th>QTY</th><th>UNIT PRICE</th><th>COST SNAPSHOT</th><th>LINE TOTAL</th></tr></thead><tbody>{(transactionDetail.lines || []).map(line=><tr key={line.saleItemId}><td><b>{line.itemName}</b>{line.provisionalCost ? <small className="live-negative">Provisional cost</small> : null}</td><td>{line.sku}</td><td>{line.quantity}</td><td>{cash(line.unitPriceActual)}</td><td>{cash(line.unitCostSnapshot)}</td><td>{cash(Number(line.unitPriceActual)*Number(line.quantity)-Number(line.discountAmount||0))}</td></tr>)}</tbody></table></div>
       <div className="live-payments"><b>Payments</b>{(transactionDetail.payments || []).map(payment=><div key={payment.id}><span>{prettyStatus(payment.method)}{payment.referenceNo ? ' · ' + payment.referenceNo : ''}</span><b>{cash(payment.amountReceived)}{Number(payment.changeDue) ? ' (change ' + cash(payment.changeDue) + ')' : ''}</b></div>)}</div>
       {transactionDetail.negativeStockOverride && <div className="warning-callout"><AlertTriangle size={16}/><span>This sale used an Admin negative-stock override. Review it in Inventory → Negative-stock reconciliation.</span></div>}
-      <div className="modal-actions"><LiveButton onClick={()=>setModal('')}>Close</LiveButton><LiveButton icon={Download} onClick={()=>window.print()}>Print page</LiveButton></div>
+      <div className="modal-actions"><LiveButton onClick={()=>setModal('')}>Close</LiveButton><LiveButton icon={Download} onClick={()=>window.print()}>Print receipt</LiveButton></div>
     </div></div>}
   </>;
 }

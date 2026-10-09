@@ -74,6 +74,7 @@ CREATE TABLE IF NOT EXISTS items (
   barcode VARCHAR(100) NULL UNIQUE,
   category_id BIGINT UNSIGNED NULL,
   description TEXT NULL,
+  image_data MEDIUMTEXT NULL,
   selling_price DECIMAL(18,2) NOT NULL DEFAULT 0.00,
   avg_cost DECIMAL(18,4) NOT NULL DEFAULT 0.0000,
   qty_on_hand INT NOT NULL DEFAULT 0,

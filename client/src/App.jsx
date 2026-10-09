@@ -9,7 +9,7 @@ import {
   FileClock, Filter, Gauge, LayoutDashboard, LifeBuoy, LogOut, Menu, Moon, MoreHorizontal,
   Package, PackageCheck, PackagePlus, Plus, Search, Settings, ShieldCheck, ShoppingBag,
   ShoppingCart, SlidersHorizontal, Sparkles, Sun, Tag, Truck, Users, Wallet, X, Zap,
-  ReceiptText, ScanBarcode, RotateCcw, TrendingUp, CircleDollarSign, Warehouse, UserRound,
+  ReceiptText, ScanBarcode, RotateCcw, TrendingUp, CircleDollarSign, Warehouse, UserRound, RefreshCw,
   ChevronUp, AlertTriangle, CheckCheck, Printer, Banknote, Smartphone, CreditCard as CardIcon
 } from 'lucide-react';
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis, BarChart, Bar, PieChart, Pie, Cell } from 'recharts';

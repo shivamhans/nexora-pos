@@ -35,6 +35,9 @@ mysql -u root -p < database/schema.sql
 
 Alternatively, execute `database/schema.sql` in MySQL Workbench. It targets `nexora_pos_cg`. You can re-run it after updates: the `CREATE TABLE IF NOT EXISTS` statements preserve existing tables/rows and create the new `negative_stock_reconciliation` and `return_payments` tables if missing. Back up data before applying schema changes to any database with valuable records.
 
+### 1a. Apply the Phase 4 upgrade migration
+If your browser displays errors like `Table 'nexora_pos_cg.negative_stock_reconciliation' doesn't exist` or `Table 'nexora_pos_cg.return_payments' doesn't exist`, your existing database predates the newer tables. In MySQL Workbench, open `database/phase4-migration.sql` from this branch and execute it. It uses `CREATE TABLE IF NOT EXISTS` for those two tables and does not drop existing records. Then restart the API and click Retry in the affected screen.
+
 ### 2. Configure and start the API
 In the `server` folder, copy `server/.env.example` to `server/.env` (PowerShell from that folder: `Copy-Item .env.example .env`).
 

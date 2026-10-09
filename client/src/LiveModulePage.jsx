@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertTriangle, ArrowDownRight, ArrowUpRight, Boxes, CheckCircle2, ChevronDown, ClipboardList,
-  Clock3, Download, Eye, Filter, Package, PackagePlus, Plus, RefreshCw, Search, ShieldCheck,
+  Clock3, Download, Eye, Filter, ImagePlus, Package, PackagePlus, Plus, RefreshCw, Search, ShieldCheck,
   Tag, Truck, Users, Wallet, X, RotateCcw, History, CircleCheck, CircleHelp, FileText, Save
 } from 'lucide-react';
 import { apiRequest, toUiItems } from './lib/api.js';
@@ -160,10 +160,44 @@ export default function LiveModulePage({ page, auth, items, setItems, notify, on
 
   const currentRows = filtered || (page === 'Items' || page === 'Inventory' ? items : page === 'Categories' ? categories : page === 'Suppliers' ? suppliers : page === 'Customers' ? customers : page === 'Purchases' ? purchases : page === 'Staff & Roles' ? staff : page === 'Returns & Refunds' ? returnsRows : transactions);
   const setValue = (key, value) => setForm(old => ({ ...old, [key]: value }));
+
+  const handleItemPhoto = async event => {
+    const file = event.currentTarget.files?.[0];
+    event.currentTarget.value = '';
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      notify('Choose an image file to use as the product photo.', 'warning');
+      return;
+    }
+    if (file.size > 8 * 1024 * 1024) {
+      notify('Choose an image under 8 MB. Nexora will resize it before saving.', 'warning');
+      return;
+    }
+    try {
+      const bitmap = await createImageBitmap(file);
+      const maxSide = 560;
+      const scale = Math.min(1, maxSide / Math.max(bitmap.width, bitmap.height));
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+      canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+      const context = canvas.getContext('2d');
+      if (!context) throw new Error('Could not prepare the photo.');
+      context.fillStyle = '#ffffff';
+      context.fillRect(0, 0, canvas.width, canvas.height);
+      context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+      bitmap.close?.();
+      const imageData = canvas.toDataURL('image/jpeg', 0.72);
+      if (imageData.length > 650000) throw new Error('This photo is still too large after compression. Choose a smaller image.');
+      setValue('imageData', imageData);
+      notify('Product photo ready to save.', 'success');
+    } catch (error) {
+      notify(error.message || 'Could not read that image. Try a JPEG, PNG, or WebP file.', 'warning');
+    }
+  };
   const openCreate = () => {
     const today = new Date();
     const iso = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0') + '-' + String(today.getDate()).padStart(2, '0');
-    setForm(page === 'Items' ? { name: '', sku: '', categoryId: '', sellingPrice: '', initialCost: '', initialQty: '0', reorderThreshold: '5', barcode: '' }
+    setForm(page === 'Items' ? { name: '', sku: '', categoryId: '', sellingPrice: '', initialCost: '', initialQty: '0', reorderThreshold: '5', barcode: '', imageData: '' }
       : page === 'Staff & Roles' ? { name: '', email: '', role: 'Cashier', password: '' }
       : page === 'Categories' ? { name: '', description: '' }
       : page === 'Suppliers' ? { name: '', contactName: '', email: '', phone: '', address: '', notes: '' }
@@ -201,7 +235,7 @@ export default function LiveModulePage({ page, auth, items, setItems, notify, on
         name: form.name, sku: String(form.sku || '').trim() || undefined, categoryId: form.categoryId ? Number(form.categoryId) : null,
         sellingPrice: Number(form.sellingPrice), initialCost: Number(form.initialCost || 0),
         initialQty: Number(form.initialQty || 0), reorderThreshold: Number(form.reorderThreshold || 5),
-        barcode: form.barcode || null,
+        barcode: form.barcode || null, imageData: form.imageData || null,
       };
       path = '/items';
     } else if (page === 'Categories') {
@@ -589,6 +623,11 @@ export default function LiveModulePage({ page, auth, items, setItems, notify, on
         <Field label="Name *"><input className="form-input" required maxLength={180} value={form.name || ''} onChange={e=>setValue('name',e.target.value)} placeholder={page === 'Items' ? 'e.g. Matcha Energy Blend' : page === 'Categories' ? 'e.g. Beverages' : page === 'Suppliers' ? 'Supplier business name' : page === 'Staff & Roles' ? 'Team member name' : 'Customer full name'}/></Field>
         {page === 'Items' && <>
           <Field label="SKU (optional)"><input className="form-input" maxLength={80} value={form.sku || ''} onChange={e=>setValue('sku',e.target.value)} placeholder="Leave blank to generate automatically"/><small>If left blank, Nexora creates a unique SKU when saving.</small></Field>
+          <Field label="Product photo (optional)">
+            <div className="photo-upload-control"><ImagePlus size={18}/><input className="form-input photo-file-input" type="file" accept="image/jpeg,image/png,image/webp" onChange={handleItemPhoto}/></div>
+            <small>JPEG, PNG or WebP. Nexora resizes and compresses the photo before saving it with the item.</small>
+          </Field>
+          {form.imageData && <div className="item-photo-preview"><img src={form.imageData} alt="Product photo preview"/><div><b>Photo ready</b><small>It will appear on item cards and in the POS catalog.</small><LiveButton onClick={()=>setValue('imageData','')} icon={X}>Remove photo</LiveButton></div></div>}
           <Field label="Category"><select className="form-input" value={form.categoryId || ''} onChange={e=>setValue('categoryId',e.target.value)}><option value="">Uncategorized</option>{categories.filter(x=>Number(x.isActive)).map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></Field>
           <Field label="Selling price *"><input className="form-input" type="number" required min="0" step="0.01" value={form.sellingPrice || ''} onChange={e=>setValue('sellingPrice',e.target.value)}/></Field>
           <Field label="Opening unit cost"><input className="form-input" type="number" min="0" step="0.0001" value={form.initialCost || ''} onChange={e=>setValue('initialCost',e.target.value)}/></Field>

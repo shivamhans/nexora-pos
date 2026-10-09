@@ -117,7 +117,7 @@ Open the Vite URL printed in the terminal (normally `http://localhost:5173`, or 
 - Manual return/refund settlement is recorded for a selected method (Cash/UPI/Card); no payment gateway is called.
 - Split payments remain out of scope.
 - Freight capitalization into WAC remains blocked until the policy is approved.
-- A returned item restocked into inventory uses the original sale cost snapshot for the WAC update; returned items with unresolved negative stock must be reconciled before restocking.
+- A returned item restocked into inventory uses the original sale cost snapshot for the WAC update. Lines whose cost snapshot is provisional from a negative-stock override are blocked from restocking until that cost-basis policy is resolved; unresolved negative stock must also be reconciled first.
 - Damaged-stock write-offs are Admin-only and logged; full expense/write-off reporting remains incomplete.
 - Staff password resets and role changes are audited; disabled accounts are denied API requests.
 - Thermal receipt hardware, tax rules, and full audit-log browsing remain incomplete.

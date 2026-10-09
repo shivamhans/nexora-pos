@@ -130,7 +130,7 @@ function POS({ items, setItems, notify, role, currency, auth, onUnauthorized }) 
           id: result.sale.receiptNo,
           customer,
           amount: Number(result.sale.total),
-          method,
+          method: result.sale.paymentMethod || method,
           date: new Date().toLocaleString(),
           items: cart.map(line => ({ ...line })),
           change: Number(result.sale.changeDue || 0),

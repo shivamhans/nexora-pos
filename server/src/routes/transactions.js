@@ -69,7 +69,7 @@ router.get('/:id', async (req, res, next) => {
       [rows] = await pool.execute(saleHeaderSql + ' WHERE s.id = ? OR s.receipt_no = ? LIMIT 1',
         [Number.isSafeInteger(Number(input)) ? Number(input) : -1, input]);
     }
-    if (!rows[0]) return res.status(404).json({ error: 'Transaction not found. For a return, you can enter a full receipt number or its last four digits.' });
+    if (!rows[0]) return res.status(404).json({ error: 'Transaction not found. For a return, you can enter a full receipt number or its last four characters (letters or digits).' });
     const sale = rows[0];
     const [lines] = await pool.execute(`
       SELECT id AS saleItemId, item_id AS itemId, item_name_snapshot AS itemName,

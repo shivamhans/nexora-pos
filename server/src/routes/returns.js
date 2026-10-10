@@ -2,9 +2,10 @@ import { Router } from 'express';
 import { randomUUID } from 'node:crypto';
 import { pool } from '../db.js';
 import { requireAuth, allowRoles } from '../middleware/auth.js';
+import { requireModuleAccessFor } from '../middleware/permissions.js';
 
 const router = Router();
-router.use(requireAuth, allowRoles('Admin', 'Manager'));
+router.use(requireAuth, allowRoles('Admin', 'Manager'), requireModuleAccessFor(['Returns & Refunds']));
 const validId = value => Number.isSafeInteger(Number(value)) && Number(value) > 0;
 const money2 = value => Number(Number(value).toFixed(2));
 const returnNumber = () => 'RET-' + new Date().toISOString().slice(2, 10).replaceAll('-', '') + '-' + randomUUID().slice(0, 6).toUpperCase();

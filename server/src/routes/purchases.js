@@ -109,6 +109,64 @@ router.post('/', allowRoles('Admin', 'Manager'), async (req, res, next) => {
   } finally { connection.release(); }
 });
 
+router.patch('/:id', allowRoles('Admin', 'Manager'), async (req, res, next) => {
+  const purchaseId = Number(req.params.id);
+  const { supplierId = null, purchaseDate, notes = null, lines = [] } = req.body || {};
+  const supplier = supplierId == null || supplierId === '' ? null : Number(supplierId);
+  const date = String(purchaseDate || '');
+  if (!validId(purchaseId)) return res.status(400).json({ error: 'Invalid purchase ID.' });
+  if (supplier !== null && !validId(supplier)) return res.status(400).json({ error: 'Invalid supplier ID.' });
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(Date.parse(date)) || new Date(date + 'T00:00:00Z').toISOString().slice(0, 10) !== date) return res.status(400).json({ error: 'purchaseDate must be a valid YYYY-MM-DD date.' });
+  if (!Array.isArray(lines) || !lines.length || lines.length > 200) return res.status(400).json({ error: 'Add between 1 and 200 purchase lines.' });
+  if (notes != null && String(notes).length > 2000) return res.status(400).json({ error: 'Purchase notes must be 2,000 characters or fewer.' });
+
+  const resolved = [];
+  const seen = new Set();
+  for (const line of lines) {
+    const itemId = Number(line.itemId);
+    const quantity = Number(line.quantity);
+    const unitCost = Number(line.unitCost);
+    if (!validId(itemId) || !positiveInt(quantity) || !Number.isFinite(unitCost) || unitCost < 0) return res.status(400).json({ error: 'Each line requires a valid item, positive whole quantity, and non-negative unit cost.' });
+    if (seen.has(itemId)) return res.status(400).json({ error: 'Each item can appear only once per purchase. Combine its quantity into one line.' });
+    seen.add(itemId);
+    resolved.push({ itemId, quantity, unitCost: money4(unitCost) });
+  }
+
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+    const [headers] = await connection.execute('SELECT id, purchase_no AS purchaseNo, supplier_id AS supplierId, status, purchase_date AS purchaseDate, subtotal, additional_cost AS additionalCost, total_amount AS totalAmount, notes FROM purchases WHERE id = ? FOR UPDATE', [purchaseId]);
+    const purchase = headers[0];
+    if (!purchase) { await connection.rollback(); return res.status(404).json({ error: 'Purchase not found.' }); }
+    if (purchase.status !== 'ORDERED') { await connection.rollback(); return res.status(409).json({ error: 'Only an unreceived ORDERED purchase can be edited. Once any quantity has been received, the order is locked to protect stock and weighted-average cost.' }); }
+    const [oldLines] = await connection.execute('SELECT id, item_id AS itemId, quantity_ordered AS quantityOrdered, quantity_received AS quantityReceived, unit_cost AS unitCost FROM purchase_items WHERE purchase_id = ? FOR UPDATE', [purchaseId]);
+    if (oldLines.some(line => Number(line.quantityReceived) !== 0)) { await connection.rollback(); return res.status(409).json({ error: 'This purchase already has received quantities and cannot be edited.' }); }
+    if (supplier !== null) {
+      const [suppliers] = await connection.execute('SELECT id FROM suppliers WHERE id = ? AND is_active = 1 FOR UPDATE', [supplier]);
+      if (!suppliers[0]) { await connection.rollback(); return res.status(400).json({ error: 'Supplier not found or inactive.' }); }
+    }
+    const before = { ...purchase, lines: oldLines };
+    const ids = resolved.map(line => line.itemId).sort((a, b) => a - b);
+    for (const itemId of ids) {
+      const [rows] = await connection.execute('SELECT id, is_active AS isActive FROM items WHERE id = ? FOR UPDATE', [itemId]);
+      if (!rows[0] || !Boolean(Number(rows[0].isActive))) { await connection.rollback(); return res.status(400).json({ error: 'Item ' + itemId + ' was not found or is inactive.' }); }
+    }
+    const subtotal = money2(resolved.reduce((sum, line) => sum + line.quantity * line.unitCost, 0));
+    const total = money2(subtotal + Number(purchase.additionalCost));
+    await connection.execute('UPDATE purchases SET supplier_id = ?, purchase_date = ?, subtotal = ?, total_amount = ?, notes = ? WHERE id = ?', [supplier, date, subtotal, total, notes == null ? null : String(notes).trim().slice(0, 2000) || null, purchaseId]);
+    await connection.execute('DELETE FROM purchase_items WHERE purchase_id = ?', [purchaseId]);
+    for (const line of resolved) {
+      await connection.execute('INSERT INTO purchase_items (purchase_id, item_id, quantity_ordered, quantity_received, unit_cost, line_total) VALUES (?, ?, ?, 0, ?, ?)', [purchaseId, line.itemId, line.quantity, line.unitCost, money2(line.quantity * line.unitCost)]);
+    }
+    const after = { purchaseNo: purchase.purchaseNo, supplierId: supplier, status: 'ORDERED', purchaseDate: date, subtotal, additionalCost: Number(purchase.additionalCost), totalAmount: total, notes: notes == null ? null : String(notes).trim().slice(0, 2000) || null, lines: resolved };
+    await connection.execute('INSERT INTO audit_logs (user_id, action, entity_type, entity_id, before_json, after_json) VALUES (?, ?, ?, ?, ?, ?)', [req.user.sub, 'PURCHASE_UPDATED', 'PURCHASE', purchaseId, JSON.stringify(before), JSON.stringify(after)]);
+    await connection.commit();
+    res.json({ purchase: { id: purchaseId, ...after, lineCount: resolved.length, quantityReceived: 0, quantityOrdered: resolved.reduce((sum, line) => sum + line.quantity, 0) }, message: 'Unreceived purchase order updated. Inventory was not changed.' });
+  } catch (error) {
+    await connection.rollback();
+    next(error);
+  } finally { connection.release(); }
+});
 router.post('/:id/receive', allowRoles('Admin', 'Manager'), async (req, res, next) => {
   const purchaseId = Number(req.params.id);
   const { lines = [] } = req.body || {};

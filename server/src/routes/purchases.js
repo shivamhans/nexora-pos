@@ -2,9 +2,10 @@ import { Router } from 'express';
 import { randomUUID } from 'node:crypto';
 import { pool } from '../db.js';
 import { requireAuth, allowRoles } from '../middleware/auth.js';
+import { requireModuleAccessFor } from '../middleware/permissions.js';
 
 const router = Router();
-router.use(requireAuth);
+router.use(requireAuth, requireModuleAccessFor(['Purchases']));
 const validId = value => Number.isSafeInteger(Number(value)) && Number(value) > 0;
 const positiveInt = value => Number.isSafeInteger(Number(value)) && Number(value) > 0;
 const money4 = value => Number(Number(value).toFixed(4));

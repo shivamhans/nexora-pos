@@ -18,6 +18,37 @@ const isManager = role => ['Admin', 'Manager'].includes(role);
 const localDateInput = date => { const copy = new Date(date); copy.setMinutes(copy.getMinutes() - copy.getTimezoneOffset()); return copy.toISOString().slice(0, 10); };
 const shortDay = value => new Date(value + 'T00:00:00').toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
 
+const PERMISSION_MODULES_BY_ROLE = {
+  Admin: ['Dashboard', 'Point of Sale', 'Transactions', 'Inventory', 'Items', 'Categories', 'Purchases', 'Suppliers', 'Customers', 'Staff & Roles', 'Reports', 'Returns & Refunds', 'Settings'],
+  Manager: ['Dashboard', 'Point of Sale', 'Transactions', 'Inventory', 'Items', 'Categories', 'Purchases', 'Suppliers', 'Customers', 'Reports', 'Returns & Refunds'],
+  Cashier: ['Dashboard', 'Point of Sale', 'Transactions'],
+};
+const PERMISSION_COLUMN_OPTIONS = {
+  Items: { name: 'Item', sku: 'SKU', category: 'Category', sellingPrice: 'Selling price', avgCost: 'Average cost', onHand: 'On hand', status: 'Status' },
+  Inventory: { item: 'Item', sku: 'SKU', onHand: 'On hand', avgCost: 'Average cost', stockValue: 'Stock value', status: 'Status', date: 'Date', movement: 'Movement', quantity: 'Quantity', costAtTime: 'Cost at time', reason: 'Reason', user: 'Changed by' },
+  Categories: { category: 'Category', itemCount: 'Item count', description: 'Description', status: 'Status' },
+  Purchases: { purchaseNo: 'Purchase number', supplier: 'Supplier', purchaseDate: 'Order date', lineCount: 'Lines', totalAmount: 'Total', status: 'Status' },
+  Suppliers: { supplier: 'Supplier', contact: 'Contact', emailPhone: 'Email / phone', purchaseOrders: 'Purchase orders', status: 'Status' },
+  Customers: { customer: 'Customer', contact: 'Contact', orders: 'Orders', totalSpent: 'Total spent', lastPurchase: 'Last purchase' },
+  Transactions: { receiptNo: 'Receipt', customer: 'Customer', cashier: 'Cashier', date: 'Date', payment: 'Payment method', total: 'Total', status: 'Status' },
+  'Returns & Refunds': { returnNo: 'Return number', receiptNo: 'Original receipt', customer: 'Customer', date: 'Date', refund: 'Refund', settlement: 'Settlement', status: 'Status' },
+};
+const DEFAULT_PERMISSION_COLUMNS = {
+  Items: Object.keys(PERMISSION_COLUMN_OPTIONS.Items),
+  Inventory: Object.keys(PERMISSION_COLUMN_OPTIONS.Inventory),
+  Categories: Object.keys(PERMISSION_COLUMN_OPTIONS.Categories),
+  Purchases: Object.keys(PERMISSION_COLUMN_OPTIONS.Purchases),
+  Suppliers: Object.keys(PERMISSION_COLUMN_OPTIONS.Suppliers),
+  Customers: Object.keys(PERMISSION_COLUMN_OPTIONS.Customers),
+  Transactions: Object.keys(PERMISSION_COLUMN_OPTIONS.Transactions),
+  'Returns & Refunds': Object.keys(PERMISSION_COLUMN_OPTIONS['Returns & Refunds']),
+};
+const CASHIER_PERMISSION_COLUMNS = {
+  Items: ['name', 'sku', 'category', 'sellingPrice', 'onHand', 'status'],
+  Transactions: ['receiptNo', 'date', 'total', 'status'],
+};
+
+
 function LiveButton({ children, onClick, variant = 'secondary', icon: Icon, disabled, type = 'button' }) {
   return <button type={type} className={'btn btn-' + variant} onClick={onClick} disabled={disabled}>{Icon && <Icon size={16} strokeWidth={2} />}{children}</button>;
 }
@@ -76,6 +107,12 @@ export default function LiveModulePage({ page, auth, items, setItems, notify, on
   const canManage = isManager(role);
   const token = auth?.token;
   const refresh = () => setRefreshKey(value => value + 1);
+  const columnVisible = (module, column) => {
+    const selection = auth?.user?.permissions?.columns?.[module];
+    if (Array.isArray(selection)) return selection.includes(column);
+    const fallback = role === 'Cashier' ? CASHIER_PERMISSION_COLUMNS[module] : null;
+    return fallback ? fallback.includes(column) : true;
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -194,7 +231,7 @@ export default function LiveModulePage({ page, auth, items, setItems, notify, on
       notify(error.message || 'Could not read that image. Try a JPEG, PNG, or WebP file.', 'warning');
     }
   };
-  const openEdit = row => {
+  const openEdit = async row => {
     if (!canManage) return;
     if (page === 'Items') {
       setForm({
@@ -207,6 +244,7 @@ export default function LiveModulePage({ page, auth, items, setItems, notify, on
         reorderThreshold: String(row.reorderThreshold ?? 5),
         imageData: row.imageUrl || '',
       });
+      setModal('edit');
     } else if (page === 'Categories') {
       setForm({
         id: Number(row.id),
@@ -214,8 +252,38 @@ export default function LiveModulePage({ page, auth, items, setItems, notify, on
         description: row.description || '',
         isActive: Number(row.isActive) ? '1' : '0',
       });
-    } else return;
-    setModal('edit');
+      setModal('edit');
+    } else if (page === 'Purchases') {
+      if (String(row.status).toUpperCase() !== 'ORDERED' || Number(row.quantityReceived || 0) > 0) {
+        notify('Only an order with no received quantities can be edited.', 'warning');
+        return;
+      }
+      setBusy(true);
+      try {
+        const result = await apiRequest('/purchases/' + row.id, { token });
+        const purchase = result.purchase;
+        if (String(purchase.status).toUpperCase() !== 'ORDERED' || (purchase.lines || []).some(line => Number(line.quantityReceived || 0) > 0)) {
+          notify('This purchase has already started receiving and is now read-only.', 'warning');
+          refresh();
+          return;
+        }
+        setForm({
+          id: Number(purchase.id),
+          supplierId: purchase.supplierId == null ? '' : String(purchase.supplierId),
+          purchaseDate: String(purchase.purchaseDate || '').slice(0, 10),
+          notes: purchase.notes || '',
+          lines: (purchase.lines || []).map(line => ({
+            itemId: String(line.itemId),
+            quantity: String(line.quantityOrdered),
+            unitCost: String(line.unitCost),
+          })),
+        });
+        setModal('edit');
+      } catch (error) {
+        notify(error.message || 'Could not load purchase details.', 'warning');
+        if (error.status === 401 && onUnauthorizedRef.current) onUnauthorizedRef.current();
+      } finally { setBusy(false); }
+    }
   };
 
   const openCreate = () => {
@@ -299,7 +367,7 @@ export default function LiveModulePage({ page, auth, items, setItems, notify, on
       }
       if (new Set(lines.map(line => line.itemId)).size !== lines.length) { notify('Choose each item only once per purchase; combine its quantity.', 'warning'); return; }
       payload = { supplierId: form.supplierId ? Number(form.supplierId) : null, purchaseDate: form.purchaseDate, notes: form.notes || null, additionalCost: 0, lines };
-      path = '/purchases';
+      path = editing ? '/purchases/' + encodeURIComponent(form.id) : '/purchases';
     } else return;
 
     if (!String(form.name || '').trim() && page !== 'Purchases') {
@@ -307,7 +375,7 @@ export default function LiveModulePage({ page, auth, items, setItems, notify, on
       return;
     }
     const success = editing
-      ? (page === 'Items' ? 'Item details updated.' : 'Category details updated.')
+      ? (page === 'Items' ? 'Item details updated.' : page === 'Categories' ? 'Category details updated.' : 'Purchase order updated. Inventory was not changed.')
       : page === 'Purchases' ? 'Purchase order created. Stock will change only when quantities are received.'
       : ({ Items: 'Item created.', Categories: 'Category created.', Suppliers: 'Supplier created.', Customers: 'Customer created.', 'Staff & Roles': 'Staff account created.' }[page] || 'Record created.');
     await runRequest(path, method, payload, success);
@@ -643,7 +711,7 @@ export default function LiveModulePage({ page, auth, items, setItems, notify, on
         {page === 'Categories' && currentRows.map(row=><tr key={row.id}><td><b>{row.name}</b></td><td>{row.itemCount}</td><td>{row.description || '—'}</td><td><StatusPill value={Number(row.isActive) ? 'ACTIVE' : 'INACTIVE'}/></td><td>{canManage && <div className="table-action-group"><LiveButton onClick={()=>openEdit(row)} icon={Pencil}>Edit</LiveButton><LiveButton onClick={()=>toggleActive('categories',row)}>{Number(row.isActive) ? 'Deactivate' : 'Activate'}</LiveButton></div>}</td></tr>)}
         {page === 'Suppliers' && currentRows.map(row=><tr key={row.id}><td><b>{row.name}</b><small className="live-cell-sub">{row.contactName || 'Supplier'}</small></td><td>{row.contactName || '—'}</td><td>{row.email || '—'}<small className="live-cell-sub">{row.phone || ''}</small></td><td>{row.purchaseCount || 0}</td><td><StatusPill value={Number(row.isActive) ? 'ACTIVE' : 'INACTIVE'}/></td><td>{canManage && <LiveButton onClick={()=>toggleActive('suppliers',row)}>{Number(row.isActive) ? 'Deactivate' : 'Activate'}</LiveButton>}</td></tr>)}
         {page === 'Customers' && currentRows.map(row=><tr key={row.id}><td><b>{row.name}</b><small className="live-cell-sub">{row.email || 'Customer'}</small></td><td>{row.phone || '—'}</td><td>{row.orderCount || 0}</td><td>{cash(row.totalSpent)}</td><td>{asDate(row.lastPurchaseAt)}</td><td>{canManage && <LiveButton onClick={()=>toggleActive('customers',row)}>{Number(row.isActive) ? 'Deactivate' : 'Activate'}</LiveButton>}</td></tr>)}
-        {page === 'Purchases' && currentRows.map(row=><tr key={row.id}><td><b>{row.purchaseNo}</b></td><td>{row.supplier || 'No supplier'}</td><td>{asDate(row.purchaseDate)}</td><td>{row.lineCount || 0}</td><td>{cash(row.totalAmount)}</td><td><StatusPill value={row.status}/></td><td>{['ORDERED','PARTIALLY_RECEIVED'].includes(String(row.status).toUpperCase()) && canManage && <LiveButton variant="primary" onClick={()=>openReceive(row)} disabled={busy}>Receive</LiveButton>}</td></tr>)}
+        {page === 'Purchases' && currentRows.map(row=><tr key={row.id}><td><b>{row.purchaseNo}</b></td><td>{row.supplier || 'No supplier'}</td><td>{asDate(row.purchaseDate)}</td><td>{row.lineCount || 0}</td><td>{cash(row.totalAmount)}</td><td><StatusPill value={row.status}/></td><td><div className="table-action-group">{canManage && String(row.status).toUpperCase()==='ORDERED' && Number(row.quantityReceived || 0)===0 && <LiveButton icon={Pencil} onClick={()=>openEdit(row)} disabled={busy}>Edit</LiveButton>}{['ORDERED','PARTIALLY_RECEIVED'].includes(String(row.status).toUpperCase()) && canManage && <LiveButton variant="primary" onClick={()=>openReceive(row)} disabled={busy}>Receive</LiveButton>}</div></td></tr>)}
         {page === 'Transactions' && currentRows.map(row=><tr key={row.id}><td><b>{row.receiptNo}</b><small className="live-cell-sub">{row.lineCount || 0} item lines</small></td><td>{row.customer || 'Walk-in Customer'}</td><td>{row.cashier || '—'}</td><td>{asDate(row.completedAt)}</td><td>{prettyStatus(row.paymentMethod || row.method)}</td><td>{cash(row.totalAmount)}</td><td><StatusPill value={row.status}/></td><td><button className="icon-button small" onClick={()=>openTransaction(row)} aria-label="View transaction"><Eye size={16}/></button></td></tr>)}
       </tbody></table></div>}
       <div className="table-footer"><span>{loading ? 'Fetching from database…' : 'Showing ' + currentRows.length + ' live record' + (currentRows.length === 1 ? '' : 's')}</span><span className="muted">API connected · {role}</span></div>
@@ -673,7 +741,7 @@ export default function LiveModulePage({ page, auth, items, setItems, notify, on
       <div className="warning-callout"><ShieldCheck size={16}/><span>The password will be hashed by the server. The user should sign in with this new password; the existing session role is reloaded from the database.</span></div>
     </LiveModal>}
 
-    {(modal === 'create' || modal === 'edit') && <LiveModal title={modal === 'edit' ? (page === 'Items' ? 'Edit item details' : 'Edit category details') : page === 'Items' ? 'Add item' : page === 'Categories' ? 'Add category' : page === 'Suppliers' ? 'Add supplier' : page === 'Customers' ? 'Add customer' : page === 'Staff & Roles' ? 'Invite staff member' : 'Create purchase order'} subtitle={modal === 'edit' ? 'Changes are validated by the API and saved to MySQL.' : "Required fields are validated by Nexora's API."} onClose={()=>setModal('')} onSubmit={submitCreate} busy={busy} submitLabel={modal === 'edit' ? 'Save changes' : page === 'Purchases' ? 'Create purchase order' : 'Save record'} wide={page === 'Purchases' || modal === 'edit'}>
+    {(modal === 'create' || modal === 'edit') && <LiveModal title={modal === 'edit' ? (page === 'Items' ? 'Edit item details' : page === 'Categories' ? 'Edit category details' : 'Edit purchase order') : page === 'Items' ? 'Add item' : page === 'Categories' ? 'Add category' : page === 'Suppliers' ? 'Add supplier' : page === 'Customers' ? 'Add customer' : page === 'Staff & Roles' ? 'Invite staff member' : 'Create purchase order'} subtitle={modal === 'edit' ? 'Changes are validated by the API and saved to MySQL.' : "Required fields are validated by Nexora's API."} onClose={()=>setModal('')} onSubmit={submitCreate} busy={busy} submitLabel={modal === 'edit' ? 'Save changes' : page === 'Purchases' ? 'Create purchase order' : 'Save record'} wide={page === 'Purchases' || modal === 'edit'}>
       {(page === 'Items' || page === 'Categories' || page === 'Suppliers' || page === 'Customers' || page === 'Staff & Roles') && <div className="live-form-grid">
         <Field label="Name *"><input className="form-input" required maxLength={page === 'Categories' ? 120 : 200} value={form.name || ''} onChange={e=>setValue('name',e.target.value)} placeholder={page === 'Items' ? 'e.g. Matcha Energy Blend' : page === 'Categories' ? 'e.g. Beverages' : page === 'Suppliers' ? 'Supplier business name' : page === 'Staff & Roles' ? 'Team member name' : 'Customer full name'}/></Field>
         {page === 'Items' && <>

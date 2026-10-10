@@ -286,3 +286,25 @@ select{color-scheme:light}
 
 /* Uploaded photos should stay clean; the orbit is only for icon placeholders. */
 .product-art.has-product-photo:before{display:none!important}
+
+
+/* Admin-controlled per-staff module and visible-column permissions */
+.permission-intro{display:flex;align-items:flex-start;gap:12px;padding:14px 15px;margin-bottom:18px;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
+.permission-intro>svg{flex:0 0 auto;color:var(--violet);margin-top:1px}
+.permission-intro b{display:block;color:var(--text);font-size:12px}
+.permission-intro p{margin:5px 0 0;color:var(--muted);font-size:10px;line-height:1.55}
+.permission-editor-section{padding:18px 0;border-top:1px solid var(--line)}
+.permission-editor-heading{margin-bottom:13px}
+.permission-editor-heading h3{margin:0 0 5px;color:var(--text);font-size:13px}
+.permission-editor-heading p{margin:0;color:var(--muted);font-size:10px;line-height:1.5}
+.permission-module-grid,.permission-column-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.permission-choice{display:flex;align-items:center;gap:9px;min-height:39px;padding:9px 11px;border:1px solid var(--line);border-radius:9px;background:var(--surface);color:var(--text);font-size:10px;cursor:pointer;transition:border-color .15s,background .15s}
+.permission-choice:hover{border-color:var(--violet);background:var(--surface-2)}
+.permission-choice input{width:14px;height:14px;flex:0 0 auto;margin:0;accent-color:var(--violet);cursor:pointer}
+.permission-choice input:disabled{cursor:not-allowed;opacity:.7}
+.permission-choice:has(input:checked){border-color:var(--violet);background:var(--violet-soft)}
+.permission-column-group{padding:13px;margin-top:12px;border:1px solid var(--line);border-radius:11px;background:var(--surface)}
+.permission-column-title{font-size:11px;font-weight:750;color:var(--text);margin-bottom:10px}
+.permission-empty{padding:16px;text-align:center;color:var(--muted);background:var(--surface);border:1px dashed var(--line);border-radius:10px;font-size:11px}
+@media(max-width:720px){.permission-module-grid,.permission-column-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.permission-choice{min-width:0;overflow-wrap:anywhere;padding:8px}.permission-intro{padding:11px}}
+@media(max-width:480px){.permission-module-grid,.permission-column-grid{grid-template-columns:1fr}}

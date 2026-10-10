@@ -14,7 +14,7 @@ router.get('/', async (req, res, next) => {
     const [sales] = await pool.execute(`
       SELECT s.id, s.receipt_no AS receiptNo, s.status, s.subtotal, s.discount_total AS discountTotal,
         s.tax_total AS taxTotal, s.total_amount AS totalAmount, s.payment_status AS paymentStatus,
-        s.negative_stock_override AS negativeStockOverride, s.completed_at AS completedAt,
+        s.negative_stock_override AS negativeStockOverride, DATE_FORMAT(s.completed_at, '%Y-%m-%dT%H:%i:%s') AS completedAt,
         c.id AS customerId, COALESCE(c.name, 'Walk-in Customer') AS customer,
         u.name AS cashier, p.method AS paymentMethod, p.amount_received AS amountReceived, p.change_due AS changeDue,
         (SELECT COUNT(*) FROM sale_items si WHERE si.sale_id = s.id) AS lineCount,
@@ -43,7 +43,7 @@ router.get('/:id', async (req, res, next) => {
       SELECT s.id, s.receipt_no AS receiptNo, s.status, s.subtotal, s.discount_total AS discountTotal,
         s.tax_total AS taxTotal, s.total_amount AS totalAmount, s.payment_status AS paymentStatus,
         s.negative_stock_override AS negativeStockOverride, s.stock_override_reason AS stockOverrideReason,
-        s.completed_at AS completedAt, c.id AS customerId, COALESCE(c.name, 'Walk-in Customer') AS customer,
+        DATE_FORMAT(s.completed_at, '%Y-%m-%dT%H:%i:%s') AS completedAt, c.id AS customerId, COALESCE(c.name, 'Walk-in Customer') AS customer,
         u.name AS cashier
       FROM sales s LEFT JOIN customers c ON c.id = s.customer_id JOIN users u ON u.id = s.cashier_id
     `;

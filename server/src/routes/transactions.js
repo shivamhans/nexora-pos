@@ -51,7 +51,7 @@ router.get('/:id', async (req, res, next) => {
     // Receipt numbers have an alphanumeric suffix (for example ...-D275),
     // so accept the final four letters/digits as well as four numeric digits.
     // Resolve a suffix before exact numeric IDs to avoid choosing the wrong sale.
-    if (/^[A-Z0-9]{4}$/i.test(input)) {
+      if (/^\d{4}$/.test(input)) {
       let suffixSql = 'SELECT id FROM sales WHERE RIGHT(UPPER(receipt_no), 4) = UPPER(?)';
       const suffixParams = [input];
       if (/^\\d{4}$/.test(input)) {

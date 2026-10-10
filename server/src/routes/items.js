@@ -11,7 +11,15 @@ router.get('/', async (req, res, next) => {
     const [rows] = await pool.execute(`SELECT i.id, i.name, i.sku, i.barcode, i.category_id, c.name AS category,
       i.selling_price, i.avg_cost, i.qty_on_hand, i.reorder_threshold, i.is_active, i.image_data
       FROM items i LEFT JOIN categories c ON c.id = i.category_id WHERE i.is_active = 1 ORDER BY i.name`);
-    res.json({ items: rows });
+    const canViewCost = req.user.role !== 'Cashier' && (
+      (req.user.permissions?.modules?.includes('Items') && req.user.permissions?.columns?.Items?.includes('avgCost')) ||
+      (req.user.permissions?.modules?.includes('Inventory') && req.user.permissions?.columns?.Inventory?.includes('avgCost'))
+    );
+    const items = canViewCost ? rows : rows.map(row => {
+      const { avg_cost: _hiddenAverageCost, ...safeRow } = row;
+      return safeRow;
+    });
+    res.json({ items });
   } catch (error) { next(error); }
 });
 router.post('/', allowRoles('Admin', 'Manager'), async (req, res, next) => {

@@ -9,6 +9,9 @@ The draft feature branch now includes:
 - Database-backed POS, checkout, transaction history, item catalog, inventory adjustments, stock movement ledger and Admin reconciliation.
 - **Item editing:** Admins/Managers can update an item's name, SKU, barcode, category, selling price, low-stock threshold and product photo after creation. Changes are validated server-side and written to the audit log. On-hand quantity and weighted-average cost are deliberately excluded from the editor; they can only change through the stock/receiving workflows.
 - **Category editing:** Admins/Managers can edit category name and description and update active/inactive status. The API validates duplicate names and retains linked item history.
+- **Purchase order editing:** Admins/Managers can edit the supplier, date, notes, line items, quantities and unit costs while an order is still `ORDERED` and nothing has been received. Once any quantity is received, the API rejects edits so stock/WAC history cannot be rewritten. Every edit is audited.
+- **Per-user permissions:** Admins can open **Permissions** for Manager/Cashier accounts, choose which workspace modules they may open, and choose which table columns are visible in each enabled table. The server enforces module access and role limits; Admin accounts always retain full access. Item average cost is omitted from the item-list API when the signed-in user has no enabled Items/Inventory average-cost column.
+
 - SKU auto-generation when creating an item without a custom code, compressed item-photo storage in MySQL, live product photos in the POS/catalog, and receipt-only printing.
 - Supplier/customer directories, purchase orders and receiving with weighted-average-cost updates.
 - Searchable transaction history and partial returns with quantity/refund checks, optional restocking, manual settlement records, stock movements and audit history.
@@ -41,7 +44,7 @@ mysql -u root -p < database/schema.sql
 Alternatively, execute `database/schema.sql` in MySQL Workbench. It targets `nexora_pos_cg`. You can re-run it after updates: the `CREATE TABLE IF NOT EXISTS` statements preserve existing tables/rows and create the new `negative_stock_reconciliation` and `return_payments` tables if missing. Back up data before applying schema changes to any database with valuable records.
 
 ### 1a. Apply the Phase 4/5 upgrade migration
-If your browser displays errors like `Table 'nexora_pos_cg.negative_stock_reconciliation' doesn't exist` or `Table 'nexora_pos_cg.return_payments' doesn't exist`, your existing database predates the newer tables. In MySQL Workbench, open `database/phase4-migration.sql` from this branch and execute it. It safely creates `negative_stock_reconciliation` and `return_payments` if missing, and adds the optional `items.image_data` column if missing. It does not drop existing records. Run it once after downloading this update, then restart the API.
+If your browser displays errors like `Table 'nexora_pos_cg.negative_stock_reconciliation' doesn't exist` or `Table 'nexora_pos_cg.return_payments' doesn't exist`, your existing database predates the newer tables. In MySQL Workbench, open `database/phase4-migration.sql` from this branch and execute it. It safely creates `negative_stock_reconciliation` and `return_payments` if missing, adds `items.image_data` and `users.permissions_json` if missing, and does not drop existing records. Run the whole script after downloading this update, then restart the API. The migration is idempotent for these additions.
 
 ### 2. Configure and start the API
 In the `server` folder, copy `server/.env.example` to `server/.env` (PowerShell from that folder: `Copy-Item .env.example .env`).

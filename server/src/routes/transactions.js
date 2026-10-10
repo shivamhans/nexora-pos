@@ -47,23 +47,27 @@ router.get('/:id', async (req, res, next) => {
         u.name AS cashier
       FROM sales s LEFT JOIN customers c ON c.id = s.customer_id JOIN users u ON u.id = s.cashier_id
     `;
-    let [rows] = await pool.execute(saleHeaderSql + ' WHERE s.id = ? OR s.receipt_no = ? LIMIT 1',
-      [Number.isSafeInteger(Number(input)) ? Number(input) : -1, input]);
-
-    // For returns, support the last four digits of either the receipt number
-    // or numeric sale ID, but never guess when that suffix is ambiguous.
-    if (!rows[0] && /^\d{4}$/.test(input)) {
-      const [matches] = await pool.execute(`
-        SELECT id FROM sales
-        WHERE RIGHT(receipt_no, 4) = ? OR RIGHT(CAST(id AS CHAR), 4) = ?
-        ORDER BY id DESC LIMIT 2
-      `, [input, input]);
+    let rows = [];
+    // Receipt numbers have an alphanumeric suffix (for example ...-D275),
+    // so accept the final four letters/digits as well as four numeric digits.
+    // Resolve a suffix before exact numeric IDs to avoid choosing the wrong sale.
+    if (/^[A-Z0-9]{4}$/i.test(input)) {
+      let suffixSql = 'SELECT id FROM sales WHERE RIGHT(UPPER(receipt_no), 4) = UPPER(?)';
+      const suffixParams = [input];
+      if (/^\\d{4}$/.test(input)) {
+        suffixSql += ' OR RIGHT(CAST(id AS CHAR), 4) = ?';
+        suffixParams.push(input);
+      }
+      const [matches] = await pool.execute(suffixSql + ' ORDER BY id DESC LIMIT 2', suffixParams);
       if (matches.length > 1) {
-        return res.status(409).json({ error: 'More than one sale matches those last four digits. Enter the full receipt number or sale ID.' });
+        return res.status(409).json({ error: 'More than one sale matches those last four characters. Enter the full receipt number or sale ID.' });
       }
       if (matches.length === 1) {
         [rows] = await pool.execute(saleHeaderSql + ' WHERE s.id = ? LIMIT 1', [matches[0].id]);
       }
+    } else {
+      [rows] = await pool.execute(saleHeaderSql + ' WHERE s.id = ? OR s.receipt_no = ? LIMIT 1',
+        [Number.isSafeInteger(Number(input)) ? Number(input) : -1, input]);
     }
     if (!rows[0]) return res.status(404).json({ error: 'Transaction not found. For a return, you can enter a full receipt number or its last four digits.' });
     const sale = rows[0];

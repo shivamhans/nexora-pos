@@ -433,6 +433,69 @@ export default function LiveModulePage({ page, auth, items, setItems, notify, on
     } finally { setBusy(false); }
   };
 
+  const openStaffPermissions = row => {
+    if (row.role === 'Admin') {
+      notify('Admin accounts retain full access. Configure permissions for Manager or Cashier accounts.', 'info');
+      return;
+    }
+    const allowedModules = PERMISSION_MODULES_BY_ROLE[row.role] || PERMISSION_MODULES_BY_ROLE.Cashier;
+    const stored = row.permissions || {};
+    const columns = { ...(stored.columns || {}) };
+    for (const module of allowedModules) {
+      if (!PERMISSION_COLUMN_OPTIONS[module] || Array.isArray(columns[module])) continue;
+      columns[module] = row.role === 'Cashier' && CASHIER_PERMISSION_COLUMNS[module]
+        ? [...CASHIER_PERMISSION_COLUMNS[module]]
+        : Object.keys(PERMISSION_COLUMN_OPTIONS[module]);
+    }
+    setForm({
+      staffId: row.id,
+      staffName: row.name,
+      staffRole: row.role,
+      permissionModules: Array.isArray(stored.modules) ? [...stored.modules] : [...allowedModules],
+      permissionColumns: columns,
+    });
+    setModal('staff-permissions');
+  };
+
+  const togglePermissionModule = (module, checked) => {
+    setForm(old => {
+      const nextModules = checked
+        ? [...new Set([...(old.permissionModules || []), module])]
+        : (old.permissionModules || []).filter(value => value !== module);
+      const nextColumns = { ...(old.permissionColumns || {}) };
+      if (checked && PERMISSION_COLUMN_OPTIONS[module] && !Array.isArray(nextColumns[module])) {
+        nextColumns[module] = (old.staffRole === 'Cashier' && CASHIER_PERMISSION_COLUMNS[module])
+          ? [...CASHIER_PERMISSION_COLUMNS[module]]
+          : Object.keys(PERMISSION_COLUMN_OPTIONS[module]);
+      }
+      return { ...old, permissionModules: nextModules, permissionColumns: nextColumns };
+    });
+  };
+
+  const togglePermissionColumn = (module, column, checked) => {
+    setForm(old => {
+      const current = Array.isArray(old.permissionColumns?.[module])
+        ? old.permissionColumns[module]
+        : Object.keys(PERMISSION_COLUMN_OPTIONS[module] || {});
+      const selected = checked ? [...new Set([...current, column])] : current.filter(value => value !== column);
+      return { ...old, permissionColumns: { ...(old.permissionColumns || {}), [module]: selected } };
+    });
+  };
+
+  const saveStaffPermissions = async event => {
+    event.preventDefault();
+    const modules = form.permissionModules || [];
+    if (!modules.includes('Dashboard')) {
+      notify('Dashboard must remain enabled so the staff member has a workspace landing page.', 'warning');
+      return;
+    }
+    const columns = Object.fromEntries(
+      Object.entries(form.permissionColumns || {}).filter(([module]) => modules.includes(module))
+    );
+    const saved = await runRequest('/staff/' + form.staffId, 'PATCH', { permissions: { modules, columns } }, 'Staff module access and visible columns updated.');
+    if (saved) setForm({});
+  };
+
   const changeStaffRole = async (row, nextRole) => {
     if (row.role === nextRole) return;
     await runRequest('/staff/' + row.id, 'PATCH', { role: nextRole }, 'Role updated. Existing API requests now use the current server role.');
@@ -619,7 +682,7 @@ export default function LiveModulePage({ page, auth, items, setItems, notify, on
         <td>{role === 'Admin' ? <select className="staff-role-select" value={row.role} onChange={e=>changeStaffRole(row,e.target.value)}><option>Admin</option><option>Manager</option><option>Cashier</option></select> : <StatusPill value={row.role}/>}</td>
         <td><StatusPill value={Number(row.isActive) ? 'ACTIVE' : 'INACTIVE'}/></td>
         <td>{row.lastLoginAt ? asDate(row.lastLoginAt) : 'Never'}</td><td>{asDate(row.createdAt)}</td>
-        <td><div className="table-action-group"><LiveButton onClick={()=>{setForm({staffId:row.id,staffName:row.name,password:''});setModal('staff-password');}} icon={ShieldCheck}>Reset password</LiveButton><LiveButton onClick={()=>toggleActive('staff',row)}>{Number(row.isActive) ? 'Deactivate' : 'Activate'}</LiveButton></div></td>
+        <td><div className="table-action-group">{row.role !== 'Admin' && <LiveButton onClick={()=>openStaffPermissions(row)} icon={ShieldCheck}>Permissions</LiveButton>}<LiveButton onClick={()=>{setForm({staffId:row.id,staffName:row.name,password:''});setModal('staff-password');}} icon={ShieldCheck}>Reset password</LiveButton><LiveButton onClick={()=>toggleActive('staff',row)}>{Number(row.isActive) ? 'Deactivate' : 'Activate'}</LiveButton></div></td>
       </tr>)}</tbody></table></div>}
       <div className="table-footer"><span>{staff.length} account(s)</span><span className="muted">Passwords are hashed · Changes are audited</span></div>
     </section>}
@@ -734,6 +797,37 @@ export default function LiveModulePage({ page, auth, items, setItems, notify, on
         <Field label="Refund reference (optional)"><input className="form-input" maxLength={120} value={form.referenceNo || ''} onChange={e=>setValue('referenceNo',e.target.value)} placeholder="UPI/card reference"/></Field>
       </div>
       {!returnSale && <div className="info-callout"><CircleHelp size={16}/><span>Load a completed sale first. The return cannot be completed until the original receipt is found.</span></div>}
+    </LiveModal>}
+
+    {modal === 'staff-permissions' && <LiveModal title={'Permissions · ' + (form.staffName || 'Staff member')} subtitle="Choose which modules this user can open and which table columns are visible to them. Their role still limits sensitive actions." onClose={()=>setModal('')} onSubmit={saveStaffPermissions} busy={busy} submitLabel="Save permissions" wide>
+      <div className="permission-intro">
+        <ShieldCheck size={18}/>
+        <div><b>{form.staffRole || 'Cashier'} access policy</b><p>Dashboard stays enabled. A user's role limits the maximum modules and actions they can receive. Admin accounts always retain full access.</p></div>
+      </div>
+      <section className="permission-editor-section">
+        <div className="permission-editor-heading"><h3>Module access</h3><p>Switch whole workspace pages on or off for this account.</p></div>
+        <div className="permission-module-grid">
+          {(PERMISSION_MODULES_BY_ROLE[form.staffRole] || PERMISSION_MODULES_BY_ROLE.Cashier).map(module=><label className="permission-choice" key={module}>
+            <input type="checkbox" checked={(form.permissionModules || []).includes(module)} disabled={module === 'Dashboard'} onChange={e=>togglePermissionModule(module,e.target.checked)}/>
+            <span>{module}</span>
+          </label>)}
+        </div>
+      </section>
+      <section className="permission-editor-section">
+        <div className="permission-editor-heading"><h3>Visible table columns</h3><p>Choose which columns appear in each enabled table. Empty selections hide those columns from the workspace table.</p></div>
+        {(PERMISSION_MODULES_BY_ROLE[form.staffRole] || PERMISSION_MODULES_BY_ROLE.Cashier)
+          .filter(module => (form.permissionModules || []).includes(module) && PERMISSION_COLUMN_OPTIONS[module])
+          .map(module=><div className="permission-column-group" key={module}>
+            <div className="permission-column-title">{module}</div>
+            <div className="permission-column-grid">
+              {Object.entries(PERMISSION_COLUMN_OPTIONS[module]).map(([column,label])=><label className="permission-choice" key={column}>
+                <input type="checkbox" checked={(form.permissionColumns?.[module] || (form.staffRole === 'Cashier' && CASHIER_PERMISSION_COLUMNS[module]) || Object.keys(PERMISSION_COLUMN_OPTIONS[module])).includes(column)} onChange={e=>togglePermissionColumn(module,column,e.target.checked)}/>
+                <span>{label}</span>
+              </label>)}
+            </div>
+          </div>)}
+        {!(form.permissionModules || []).some(module => PERMISSION_COLUMN_OPTIONS[module]) && <div className="permission-empty">No table-based modules are enabled. Enable a module above to configure its columns.</div>}
+      </section>
     </LiveModal>}
 
     {modal === 'staff-password' && <LiveModal title="Reset staff password" subtitle={'Set a new sign-in password for ' + (form.staffName || 'this account') + '.'} onClose={()=>setModal('')} onSubmit={resetStaffPassword} busy={busy} submitLabel="Reset password">

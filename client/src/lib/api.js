@@ -9,6 +9,7 @@ export async function apiRequest(path, options = {}) {
       headers: {
         Accept: 'application/json',
         ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
+        ...(new URL(API_BASE_URL).hostname.includes('ngrok') ? { 'ngrok-skip-browser-warning': 'true' } : {}),
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
         ...headers,
       },

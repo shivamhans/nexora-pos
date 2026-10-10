@@ -71,6 +71,8 @@ export function toUiItems(rows = []) {
       displayId: `NX-${String(row.id).padStart(4, '0')}`,
       name: row.name,
       category: row.category || 'Uncategorized',
+      categoryId: row.category_id == null ? null : Number(row.category_id),
+      barcode: row.barcode || '',
       sku: row.sku || '',
       price: Number(row.selling_price ?? 0),
       cost: Number(row.avg_cost ?? 0),

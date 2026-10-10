@@ -2,20 +2,22 @@
 
 Nexora POS is a desktop-first point-of-sale and inventory system built with React, Vite, Tailwind CSS, Express, and local MySQL.
 
-## Current milestone: Phase 4 — management and reporting
+## Current milestone: Phase 5 — final workflow completion and stabilization
 
-The feature branch now includes:
-- Premium sign-in and database-backed sales/catalog workflows.
-- Items and categories, supplier/customer directories, purchase orders and receiving with weighted-average-cost (WAC) updates.
-- Inventory adjustments, stock movement history, and an Admin reconciliation queue for negative-stock overrides.
-- Searchable transaction history with sale line/payment detail.
-- Admin-only staff management: invite staff, assign roles, activate/deactivate accounts, and reset passwords. The API reloads the current role/status from the database for protected requests.
-- Partial returns validated against the original sale quantity and prior returns, with optional restocking, a manual settlement record, stock/WAC updates, and audit trail.
-- Persisted business name/currency/locale/timezone/receipt footer settings.
-- Database-backed reports for sales, refunds, inventory value, payment breakdown and daily performance. Gross profit is withheld when provisional sale costs exist; net profit is not reported without expense tracking.
-- CI checks for the frontend production build and backend JavaScript syntax.
+The draft feature branch now includes:
+- Premium sign-in, role-aware navigation, same-Wi-Fi LAN support, and a responsive light/dark workspace.
+- Database-backed POS, checkout, transaction history, item catalog, inventory adjustments, stock movement ledger and Admin reconciliation.
+- **Item editing:** Admins/Managers can update an item's name, SKU, barcode, category, selling price, low-stock threshold and product photo after creation. Changes are validated server-side and written to the audit log. On-hand quantity and weighted-average cost are deliberately excluded from the editor; they can only change through the stock/receiving workflows.
+- **Category editing:** Admins/Managers can edit category name and description and update active/inactive status. The API validates duplicate names and retains linked item history.
+- SKU auto-generation when creating an item without a custom code, compressed item-photo storage in MySQL, live product photos in the POS/catalog, and receipt-only printing.
+- Supplier/customer directories, purchase orders and receiving with weighted-average-cost updates.
+- Searchable transaction history and partial returns with quantity/refund checks, optional restocking, manual settlement records, stock movements and audit history.
+- Admin-only staff management: invite staff, assign roles, activate/deactivate accounts, and reset passwords. Protected APIs reload current account role/status.
+- Persisted business name, currency, locale, timezone and receipt footer; the sidebar uses the saved business name and stock alerts use each item's configured threshold.
+- Database-backed reports and dashboard. Gross profit is withheld when provisional costs affect a period; net profit is not reported without expense tracking.
+- GitHub Actions checks the frontend production build and backend JavaScript syntax.
 
-**Still not production-ready.** Returns record the declared manual settlement method but do not send funds through a payment gateway. Tax remains disabled because a tax-rate/calculation policy is not configured. The signed-in dashboard fetches its metrics from saved database records; illustrative figures are shown only in the unsigned-in demo workspace. End-to-end and concurrency/security testing against your local MySQL instance has not been completed.
+**Phase 5 is the final implementation pass, not a production-readiness certification.** Tax collection remains disabled until its rate/calculation policy is approved; returns record a manual settlement method but do not transfer funds through a payment gateway. End-to-end, multi-device concurrency, rollback and security testing with your local MySQL setup is still required before real-store use.
 
 ## Item identifiers
 When creating an item, the SKU field is optional. If you leave it blank, the API generates a unique `NX-` SKU at save time. If you enter your own SKU, it must be unique. A **SKU (Stock Keeping Unit)** is your internal code for identifying a product or product variant, for example `CHO-050` for a 50 g chocolate bar or `NX-1001` for a general product code. Each distinct item should have its own unique SKU. A barcode is a separate scannable identifier; it does not have to be the same as the SKU. Item creation also supports an optional product photo: select a JPEG, PNG or WebP image (up to 8 MB before resizing). The browser compresses it to a small JPEG and the API stores it in MySQL, so no separate uploads folder is needed.
@@ -38,7 +40,7 @@ mysql -u root -p < database/schema.sql
 
 Alternatively, execute `database/schema.sql` in MySQL Workbench. It targets `nexora_pos_cg`. You can re-run it after updates: the `CREATE TABLE IF NOT EXISTS` statements preserve existing tables/rows and create the new `negative_stock_reconciliation` and `return_payments` tables if missing. Back up data before applying schema changes to any database with valuable records.
 
-### 1a. Apply the Phase 4 upgrade migration
+### 1a. Apply the Phase 4/5 upgrade migration
 If your browser displays errors like `Table 'nexora_pos_cg.negative_stock_reconciliation' doesn't exist` or `Table 'nexora_pos_cg.return_payments' doesn't exist`, your existing database predates the newer tables. In MySQL Workbench, open `database/phase4-migration.sql` from this branch and execute it. It safely creates `negative_stock_reconciliation` and `return_payments` if missing, and adds the optional `items.image_data` column if missing. It does not drop existing records. Run it once after downloading this update, then restart the API.
 
 ### 2. Configure and start the API

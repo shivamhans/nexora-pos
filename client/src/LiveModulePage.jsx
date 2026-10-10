@@ -42,7 +42,7 @@ function BlankState({ title, text, onAdd, addLabel }) {
   return <div className="empty-state live-empty"><div className="empty-icon"><ClipboardList size={21}/></div><h3>{title}</h3><p>{text}</p>{onAdd && <LiveButton variant="primary" icon={Plus} onClick={onAdd}>{addLabel || 'Add first record'}</LiveButton>}</div>;
 }
 
-export default function LiveModulePage({ page, auth, items, setItems, notify, onUnauthorized, onNavigate, onCurrencyChange }) {
+export default function LiveModulePage({ page, auth, items, setItems, notify, onUnauthorized, onNavigate, onCurrencyChange, onBusinessNameChange }) {
   const [categories, setCategories] = useState([]);
   const [suppliers, setSuppliers] = useState([]);
   const [customers, setCustomers] = useState([]);
@@ -338,6 +338,7 @@ export default function LiveModulePage({ page, auth, items, setItems, notify, on
       } });
       setSettings(result.settings);
       if (onCurrencyChange) onCurrencyChange(result.settings.currencyCode);
+      if (onBusinessNameChange) onBusinessNameChange(result.settings.businessName);
       notify('Business settings saved to MySQL.', 'success');
     } catch (error) {
       notify(error.message || 'Could not save business settings.', 'warning');

@@ -2,9 +2,10 @@ import { Router } from 'express';
 import { randomUUID } from 'node:crypto';
 import { pool } from '../db.js';
 import { requireAuth } from '../middleware/auth.js';
+import { requireModuleAccessFor } from '../middleware/permissions.js';
 
 const router = Router();
-router.use(requireAuth);
+router.use(requireAuth, requireModuleAccessFor(['Point of Sale']));
 router.post('/', async (req, res, next) => {
   const { customerId = null, paymentMethod, amountReceived, referenceNo = null, discountAmount = 0, discountReason = null, lines = [], negativeStockOverride = false, stockOverrideReason = null, idempotencyKey } = req.body || {};
   if (!Array.isArray(lines) || !lines.length) return res.status(400).json({ error: 'Add at least one item to the sale.' });
@@ -17,7 +18,7 @@ router.post('/', async (req, res, next) => {
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
-    const [existing] = await connection.execute('SELECT id, receipt_no, total_amount FROM sales WHERE idempotency_key = ? LIMIT 1', [idempotencyKey]);
+    const [existing] = await connection.execute("SELECT s.id, s.receipt_no AS receiptNo, s.total_amount AS total, p.change_due AS changeDue, CASE p.method WHEN 'CASH' THEN 'Cash' WHEN 'UPI' THEN 'UPI' WHEN 'CARD' THEN 'Card' END AS paymentMethod FROM sales s LEFT JOIN payments p ON p.sale_id = s.id WHERE s.idempotency_key = ? LIMIT 1", [idempotencyKey]);
     if (existing[0]) { await connection.rollback(); return res.status(200).json({ sale: existing[0], duplicate: true }); }
     let subtotal = 0;
     const resolved = [];
@@ -53,6 +54,13 @@ router.post('/', async (req, res, next) => {
       const [lineResult] = await connection.execute(`INSERT INTO sale_items (sale_id, item_id, item_name_snapshot, sku_snapshot, quantity, unit_price_actual, unit_cost_snapshot, discount_amount, price_override, override_reason, provisional_cost)
         VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?)`, [saleId, line.item.id, line.item.name, line.item.sku, line.qty, line.unitPrice, current.avg_cost, line.unitPrice !== Number(line.item.selling_price) ? 1 : 0, line.overrideReason, line.qty > current.qty_on_hand ? 1 : 0]);
       await connection.execute('UPDATE items SET qty_on_hand = qty_on_hand - ? WHERE id = ?', [line.qty, line.item.id]);
+      if (line.qty > Number(current.qty_on_hand)) {
+        const shortageQty = Math.max(0, line.qty - Number(current.qty_on_hand));
+        await connection.execute(`INSERT INTO negative_stock_reconciliation
+          (sale_id, sale_item_id, item_id, shortage_qty, reason, created_by)
+          VALUES (?, ?, ?, ?, ?, ?)`,
+          [saleId, lineResult.insertId, line.item.id, shortageQty, stockOverrideReason, req.user.sub]);
+      }
       await connection.execute(`INSERT INTO stock_movements (item_id, movement_type, qty_delta, unit_cost_at_time, reference_type, reference_id, reason, user_id)
         VALUES (?, 'SALE', ?, ?, 'SALE', ?, ?, ?)`, [line.item.id, -line.qty, current.avg_cost, saleId, negativeStockOverride && line.qty > current.qty_on_hand ? stockOverrideReason : null, req.user.sub]);
       if (line.unitPrice !== Number(line.item.selling_price)) await connection.execute(`INSERT INTO audit_logs (user_id, action, entity_type, entity_id, before_json, after_json, reason) VALUES (?, 'PRICE_OVERRIDE', 'SALE_ITEM', ?, ?, ?, ?)`, [req.user.sub, lineResult.insertId, JSON.stringify({ sellingPrice: line.item.selling_price }), JSON.stringify({ unitPrice: line.unitPrice }), line.overrideReason]);

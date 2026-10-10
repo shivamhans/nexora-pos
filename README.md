@@ -1,108 +1,168 @@
-# Nexora POS — Phase 1 foundation
+# Nexora POS
 
-A polished, responsive React/Vite/Tailwind POS interface with a Node/Express/MySQL backend scaffold. This delivery prioritizes the visual system and interactive frontend so the screens and core workflow can be reviewed before full backend integration.
+Nexora POS is a desktop-first point-of-sale and inventory system built with React, Vite, Tailwind CSS, Express, and local MySQL.
 
-## Included
+## Current milestone: Phase 5 — final workflow completion and stabilization
 
-- Premium violet glassmorphism UI with light/dark themes
-- Responsive navigation, global page search, notifications, role preview
-- Dashboard with sales chart, payment mix, recent transactions, stock attention
-- Inventory list with search, category/status filters, selection and status pills
-- Interactive POS catalog/cart, quantity controls, role-aware price/discount UI, full-payment flow, cash change calculation, receipt preview/print
-- UI scaffolds for Items, Categories, Purchases, Suppliers, Customers, Staff & Roles, Transactions, Reports, Returns & Refunds, and Settings
-- Express API scaffold with health check, login, item listing/creation, and transactional sale endpoint
-- MySQL schema for users, settings, catalog, stock movement ledger, purchases, sales, payments, returns and audit logs
+The draft feature branch now includes:
+- Premium sign-in, role-aware navigation, same-Wi-Fi LAN support, and a responsive light/dark workspace.
+- Database-backed POS, checkout, transaction history, item catalog, inventory adjustments, stock movement ledger and Admin reconciliation.
+- **Item editing:** Admins/Managers can update an item's name, SKU, barcode, category, selling price, low-stock threshold and product photo after creation. Changes are validated server-side and written to the audit log. On-hand quantity and weighted-average cost are deliberately excluded from the editor; they can only change through the stock/receiving workflows.
+- **Category editing:** Admins/Managers can edit category name and description and update active/inactive status. The API validates duplicate names and retains linked item history.
+- **Purchase order editing:** Admins/Managers can edit the supplier, date, notes, line items, quantities and unit costs while an order is still `ORDERED` and nothing has been received. Once any quantity is received, the API rejects edits so stock/WAC history cannot be rewritten. Every edit is audited.
+- **Purchase order cancellation:** Admins/Managers can cancel an `ORDERED` purchase only while no quantities have been received. Cancellation is transaction-protected, updates the order to `CANCELLED`, and writes a `PURCHASE_CANCELLED` audit record. It does not change on-hand stock or weighted-average cost. Received, partially received, and already cancelled purchases cannot be cancelled.
+- **Per-user permissions:** Admins can open **Permissions** for Manager/Cashier accounts, choose which workspace modules they may open, and choose which table columns are visible in each enabled table. The server enforces module access and role limits; Admin accounts always retain full access. Item average cost is omitted from the item-list API when the signed-in user has no enabled Items/Inventory average-cost column.
 
-## Important prototype boundary
+- SKU auto-generation when creating an item without a custom code, compressed item-photo storage in MySQL, live product photos in the POS/catalog, and receipt-only printing.
+- **WhatsApp receipts:** POS lets the cashier choose a saved customer (autofilling their phone) or enter a WhatsApp number for a walk-in. After the sale, Nexora creates a branded receipt PNG and uses the browser's native file-share sheet to share the image only (no long text receipt) when supported, so the cashier can choose WhatsApp and the recipient. If image sharing is unavailable—commonly when the site is opened over plain HTTP on a private LAN—Nexora downloads the PNG and opens the customer's WhatsApp chat without prefilled text; attach the PNG manually before sending. A WhatsApp click-to-chat URL cannot attach a local image automatically. Ten-digit local numbers default to India (+91); enter a full country code for other countries.
+- Supplier/customer directories, purchase orders and receiving with weighted-average-cost updates.
+- Searchable transaction history and partial returns with quantity/refund checks, optional restocking, manual settlement records, stock movements and audit history.
+- Admin-only staff management: invite staff, assign roles, activate/deactivate accounts, and reset passwords. Protected APIs reload current account role/status.
+- Persisted business name, currency, locale, timezone and receipt footer; the sidebar uses the saved business name and stock alerts use each item's configured threshold.
+- Database-backed reports and dashboard. Gross profit is withheld when provisional costs affect a period; net profit is not reported without expense tracking.
+- GitHub Actions checks the frontend production build and backend JavaScript syntax.
 
-The frontend currently uses illustrative in-memory demo data. A sale in the UI changes local state only; it is **not persisted** to MySQL yet. Role selection is a UI preview and is not a secure authentication mechanism. Do not use this prototype for live sales or real business records. The backend endpoints are separate and require database setup and API integration before they can power the UI.
+**Phase 5 is the final implementation pass, not a production-readiness certification.** Tax collection remains disabled until its rate/calculation policy is approved; returns record a manual settlement method but do not transfer funds through a payment gateway. End-to-end, multi-device concurrency, rollback and security testing with your local MySQL setup is still required before real-store use.
 
-The sale API stores one payment per sale and requires full payment. Negative stock is blocked by default and Admin-only override validation exists, but the negative-stock cost-basis/reconciliation policy remains a known unresolved business decision. Review and test before production use.
+## Item identifiers
+When creating an item, the SKU field is optional. If you leave it blank, the API generates a unique `NX-` SKU at save time. If you enter your own SKU, it must be unique. A **SKU (Stock Keeping Unit)** is your internal code for identifying a product or product variant, for example `CHO-050` for a 50 g chocolate bar or `NX-1001` for a general product code. Each distinct item should have its own unique SKU. A barcode is a separate scannable identifier; it does not have to be the same as the SKU. Item creation also supports an optional product photo: select a JPEG, PNG or WebP image (up to 8 MB before resizing). The browser compresses it to a small JPEG and the API stores it in MySQL, so no separate uploads folder is needed.
 
-## Requirements
+## Stack
+- Frontend: React + Vite + Tailwind CSS, Lucide, Recharts
+- Backend: Node.js + Express REST API
+- Database: local MySQL 8+
+- The browser calls Express; it must never connect directly to MySQL.
 
-- Node.js 20+ recommended
-- MySQL 8.0+
-- npm
+## Run locally
+Requirements: Node.js 20+ (22 recommended) and MySQL 8+.
 
-## Run the frontend
-
-```bash
-cd client
-npm install
-npm run dev
-```
-
-Open the local URL Vite prints (normally `http://localhost:5173`).
-
-## Set up MySQL
-
-1. Start MySQL locally.
-2. Import `database/schema.sql` using MySQL Workbench or the MySQL CLI.
-
-Example:
+### 1. Update the database schema
+Start MySQL. From the repository root, execute:
 
 ```bash
 mysql -u root -p < database/schema.sql
 ```
 
-The schema creates the `nexora_pos` database and its tables. If your local MySQL account has a password, use it when prompted.
+Alternatively, execute `database/schema.sql` in MySQL Workbench. It targets `nexora_pos_cg`. You can re-run it after updates: the `CREATE TABLE IF NOT EXISTS` statements preserve existing tables/rows and create the new `negative_stock_reconciliation` and `return_payments` tables if missing. Back up data before applying schema changes to any database with valuable records.
 
-## Run the API
+### 1a. Apply the Phase 4/5 upgrade migration
+If your browser displays errors like `Table 'nexora_pos_cg.negative_stock_reconciliation' doesn't exist` or `Table 'nexora_pos_cg.return_payments' doesn't exist`, your existing database predates the newer tables. In MySQL Workbench, open `database/phase4-migration.sql` from this branch and execute it. It safely creates `negative_stock_reconciliation` and `return_payments` if missing, adds `items.image_data` and `users.permissions_json` if missing, and does not drop existing records. Run the whole script after downloading this update, then restart the API. The migration is idempotent for these additions.
 
-```bash
-cd server
-cp .env.example .env
+### 2. Configure and start the API
+In the `server` folder, copy `server/.env.example` to `server/.env` (PowerShell from that folder: `Copy-Item .env.example .env`).
+
+Example local settings:
+
+```dotenv
+PORT=4001
+CLIENT_ORIGIN=http://localhost:5173,http://localhost:5174
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_USER=root
+DB_PASSWORD=your-mysql-password
+DB_NAME=nexora_pos_cg
+JWT_SECRET=replace-with-a-long-random-secret
+JWT_EXPIRES_IN=8h
 ```
 
-Edit `server/.env` with your MySQL username/password and a long random `JWT_SECRET`, then:
+Use your actual MySQL password. Generate a JWT secret in PowerShell with:
+
+```powershell
+node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
+```
+
+Replace the JWT placeholder with the generated value and keep it private. Start the server:
 
 ```bash
 npm install
 npm run dev
 ```
 
-API health check: `http://localhost:4000/api/health`
+Health endpoint: http://localhost:4001/api/health
 
-Create the first Admin account using a strong password (12+ characters):
+### 3. Create the first Nexora Admin login
+The MySQL setting `DB_PASSWORD` is **not** the Nexora application sign-in password.
+
+From the `server` folder, run:
 
 ```bash
-node src/seed-admin.js "Store Admin" admin@example.com "your-strong-password"
+node src/seed-admin.js "Store Admin" admin@example.com "Your-own-strong-password-12+"
 ```
 
-Login endpoint: `POST /api/auth/login` with JSON `{ "email": "admin@example.com", "password": "your-strong-password" }`.
+Replace the example password with your own unique password of at least 12 characters. **A password like `admin` is rejected**, and the seed script will not create the account. After a successful command, sign in with `admin@example.com` and the exact password used there.
 
-Protected endpoints currently include:
-- `GET /api/items`
-- `POST /api/items`
-- `POST /api/sales`
+If an account already exists and its password is unknown, reset it from the `server` folder:
 
-Use a Bearer token from the login response. The frontend is not yet connected to these endpoints.
+```bash
+node src/reset-user-password.js admin@example.com "Your-new-strong-password-12+"
+```
 
-## Confirmed business rules represented in the design
+This changes the password hash for an existing account; it does not create missing accounts or activate disabled accounts. Keep the new password private.
 
-- Single business / single store for v1
-- Configurable business currency; no foreign exchange
-- Tax disabled by default
-- Discounts and price overrides restricted to Manager/Admin
-- No credit sales; completed sales require full payment
-- Weighted average cost as inventory valuation method
-- Negative stock prohibited by default; Admin override requires warning, reason and audit record
+### 4. Start the frontend
+In another terminal, enter the `client` folder. Copy `client/.env.example` to `client/.env` if you want to set the API URL explicitly:
 
-## Known design decisions still open
+```dotenv
+VITE_API_URL=http://localhost:4001/api
+```
 
-- Split payments (not included in v1 UI)
-- Negative-stock cost treatment and reconciliation details
-- Capitalization of freight/purchase-side charges into weighted average cost
-- Damaged stock write-off accounting
-- Line-level discounts (current design proposes order-level only)
-- Receipt hardware/thermal printer support
-- Tax rules if the optional tax setting is enabled
+Then:
 
-## Next phases
+```bash
+npm install
+npm run dev
+```
 
-1. Connect frontend authentication and API state to the backend.
-2. Complete catalog, categories, suppliers, purchases and inventory movement workflows.
-3. Complete returns/refunds, staff management, settings and report endpoints.
-4. Add automated tests for permissions, WAC calculations, stock locking, idempotency and rollback behavior.
-5. Conduct security review and production hardening before using real data.
+Open the Vite URL printed in the terminal (normally `http://localhost:5173`, or `http://localhost:5174` if 5173 is occupied). Local Vite origins are allowed by the API. If you change `JWT_SECRET`, restart the API and sign in again.
+
+## Same-Wi-Fi LAN setup (recommended for nearby devices)
+
+Use this when the PC running Nexora/MySQL and phones/tablets are connected to the same Wi-Fi. No ngrok tunnel is needed.
+
+1. On the Windows PC running Nexora, open PowerShell and run `ipconfig`. Find the **IPv4 Address** under the connected Wi-Fi adapter (for example `192.168.1.23`). Use your actual address.
+2. In `server/.env`, set `PORT=4001`, `HOST=0.0.0.0`, and `LAN_ACCESS=true`. Keep `DB_HOST=127.0.0.1` because MySQL runs on the same PC.
+3. In `client/.env.local` or `client/.env`, set `VITE_HOST=0.0.0.0`, `VITE_PORT=5175`, and `VITE_API_URL=http://localhost:4001/api`. Remove old `NGROK_HOST` and `https://...ngrok-free.app/api` values. Nexora automatically replaces localhost in this API URL with the private IP when a LAN device opens the frontend.
+4. In separate terminals, start Express from `server` with `npm run dev`, and Vite from `client` with `npm run dev -- --host 0.0.0.0 --port 5175`. If Windows Defender Firewall prompts, allow Node.js on **Private networks only**.
+5. On the host PC, open `http://localhost:5175`. On a phone/tablet on the same Wi-Fi, open `http://YOUR-PC-IP:5175`, replacing the placeholder with the IPv4 address from step 1.
+6. If it cannot connect, first open `http://YOUR-PC-IP:4001/api/health` from that device. It should return JSON with `"status":"ok"` and `"database":"connected"`. If it times out, check Windows Firewall inbound TCP ports 4001 and 5175 on the Private profile, and make sure the device isn't on guest Wi-Fi or blocked by router/AP client isolation.
+
+LAN CORS allows HTTP origins using private IPv4 addresses only when `LAN_ACCESS=true`; exact `CLIENT_ORIGIN` entries continue to work. Do not forward ports 4001/5175 on your router. Use trusted devices and require each user to sign in.
+
+## Optional remote testing with ngrok
+
+For devices **not** on the same Wi-Fi, use separate ngrok tunnels. Set `NGROK_HOST` to the exact frontend hostname, set `VITE_API_URL` to the HTTPS API tunnel URL ending in `/api`, add the exact frontend HTTPS origin to `CLIENT_ORIGIN`, and restart both services. Do not mix the ngrok API URL with the same-Wi-Fi setup.
+
+## Confirmed v1 business rules
+- One business and one store.
+- One configurable base currency; no foreign-exchange conversion. Changing the currency setting changes labels, not historical amounts.
+- Tax is disabled by default and cannot yet be enabled until a tax rate/rules policy is implemented.
+- Only Admin/Manager can apply discounts or override prices; reasons and audit records are required.
+- No credit sales; full payment is required before sale completion.
+- Weighted-average-cost valuation; cost is updated when purchases are received.
+- Negative stock is blocked by default. An Admin override creates an audit record and reconciliation entry; an Admin must reconcile the physical count.
+- Stock changes use a movement ledger, and money uses DECIMAL database fields.
+- Historical sale cost snapshots are retained. Gross profit is withheld if provisional cost snapshots affect the selected report period. Net profit is not reported without an expenses module.
+
+## Known limitations and decisions
+- Manual return/refund settlement is recorded for a selected method (Cash/UPI/Card); no payment gateway is called.
+- Split payments remain out of scope.
+- Freight capitalization into WAC remains blocked until the policy is approved.
+- A returned item restocked into inventory uses the original sale cost snapshot for the WAC update. Lines whose cost snapshot is provisional from a negative-stock override are blocked from restocking until that cost-basis policy is resolved; unresolved negative stock must also be reconciled first.
+- Damaged-stock write-offs are Admin-only and logged; full expense/write-off reporting remains incomplete.
+- Staff password resets and role changes are audited; disabled accounts are denied API requests.
+- Printing now uses an explicit receipt-only layout for POS completion and transaction history; verify paper size and printer scaling in the browser print dialog.
+- Thermal receipt hardware, tax rules, and full audit-log browsing remain incomplete.
+
+## Before real store use
+Run the frontend build and backend syntax CI, then test the workflows against a disposable/local MySQL database: seed login, role restrictions, item creation, purchase receipt/WAC, sale/idempotency, partial returns, concurrent stock changes, reconciliation and rollback behavior. Complete a security review and back up business data before production use.
+
+## Security reminders
+- Never commit `.env`, passwords, tokens, keys, or real customer/business exports.
+- Use a strong unique JWT secret and application passwords.
+- The UI is not the security boundary; the server enforces roles and account status.
+- The feature branch is still a draft and should not be used for live sales until end-to-end verification is complete.
+
+
+## Return lookup note
+
+For returns, enter the full receipt/sale ID or the final four characters of the receipt number (letters and digits, e.g. `D275`). Four numeric digits also match the last four digits of the numeric sale ID. If multiple sales share that suffix, the API asks for the full identifier rather than selecting one.

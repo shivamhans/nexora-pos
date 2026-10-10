@@ -1,8 +1,8 @@
 -- Nexora POS schema (MySQL 8.0+)
 -- Single business / single store v1. No business_id/store_id tenancy columns.
 -- Run this only in a dedicated development database after backing up any existing data.
-CREATE DATABASE IF NOT EXISTS nexora_pos CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;
-USE nexora_pos;
+CREATE DATABASE IF NOT EXISTS nexora_pos_cg CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;
+USE nexora_pos_cg;
 
 CREATE TABLE IF NOT EXISTS business_settings (
   id TINYINT UNSIGNED NOT NULL PRIMARY KEY DEFAULT 1,
@@ -25,6 +25,7 @@ CREATE TABLE IF NOT EXISTS users (
   email VARCHAR(190) NOT NULL UNIQUE,
   password_hash VARCHAR(255) NOT NULL,
   role ENUM('Admin','Manager','Cashier') NOT NULL DEFAULT 'Cashier',
+  permissions_json JSON NULL,
   is_active BOOLEAN NOT NULL DEFAULT TRUE,
   last_login_at DATETIME NULL,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -74,6 +75,7 @@ CREATE TABLE IF NOT EXISTS items (
   barcode VARCHAR(100) NULL UNIQUE,
   category_id BIGINT UNSIGNED NULL,
   description TEXT NULL,
+  image_data MEDIUMTEXT NULL,
   selling_price DECIMAL(18,2) NOT NULL DEFAULT 0.00,
   avg_cost DECIMAL(18,4) NOT NULL DEFAULT 0.0000,
   qty_on_hand INT NOT NULL DEFAULT 0,
@@ -247,3 +249,43 @@ CREATE TABLE IF NOT EXISTS audit_logs (
 ) ENGINE=InnoDB;
 
 -- Add an initial Admin through the server seed script; never store a plaintext password.
+
+-- Admin workflow for negative-stock overrides. One row is created for each oversold sale line.
+CREATE TABLE IF NOT EXISTS negative_stock_reconciliation (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  sale_id BIGINT UNSIGNED NOT NULL,
+  sale_item_id BIGINT UNSIGNED NOT NULL,
+  item_id BIGINT UNSIGNED NOT NULL,
+  shortage_qty INT NOT NULL,
+  reason VARCHAR(500) NOT NULL,
+  status ENUM('OPEN','RESOLVED') NOT NULL DEFAULT 'OPEN',
+  created_by BIGINT UNSIGNED NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  resolved_counted_qty INT NULL,
+  resolution_reason VARCHAR(500) NULL,
+  resolved_by BIGINT UNSIGNED NULL,
+  resolved_at DATETIME NULL,
+  CONSTRAINT fk_negative_reconciliation_sale FOREIGN KEY (sale_id) REFERENCES sales(id),
+  CONSTRAINT fk_negative_reconciliation_sale_item FOREIGN KEY (sale_item_id) REFERENCES sale_items(id),
+  CONSTRAINT fk_negative_reconciliation_item FOREIGN KEY (item_id) REFERENCES items(id),
+  CONSTRAINT fk_negative_reconciliation_created_by FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL,
+  CONSTRAINT fk_negative_reconciliation_resolved_by FOREIGN KEY (resolved_by) REFERENCES users(id) ON DELETE SET NULL,
+  CONSTRAINT chk_negative_reconciliation_shortage CHECK (shortage_qty > 0),
+  CONSTRAINT chk_negative_reconciliation_count CHECK (resolved_counted_qty IS NULL OR resolved_counted_qty >= 0),
+  INDEX idx_negative_reconciliation_item_status (item_id, status),
+  INDEX idx_negative_reconciliation_sale (sale_id),
+  INDEX idx_negative_reconciliation_status_created (status, created_at)
+) ENGINE=InnoDB;
+
+
+-- Persist one declared manual refund settlement record per return.
+CREATE TABLE IF NOT EXISTS return_payments (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  return_id BIGINT UNSIGNED NOT NULL UNIQUE,
+  method ENUM('CASH','UPI','CARD') NOT NULL,
+  amount DECIMAL(18,2) NOT NULL,
+  reference_no VARCHAR(120) NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_return_payments_return FOREIGN KEY (return_id) REFERENCES returns(id),
+  CONSTRAINT chk_return_payments_amount CHECK (amount >= 0)
+) ENGINE=InnoDB;

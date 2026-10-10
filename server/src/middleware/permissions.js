@@ -52,7 +52,7 @@ export function effectivePermissions(role, storedValue) {
   for (const [module, options] of Object.entries(COLUMN_OPTIONS)) {
     const roleDefaults = CASHIER_DEFAULT_COLUMNS[module] || Object.keys(options);
     const requested = stored?.columns && Object.hasOwn(stored.columns, module) ? stored.columns[module] : roleDefaults;
-    const safe = Array.isArray(requested) ? requested.filter(key => Object.hasOwn(options, key)) : roleDefaults;
+    const safe = Array.isArray(requested) ? requested.filter(key => Object.hasOwn(options, key) && roleDefaults.includes(key)) : roleDefaults;
     columns[module] = safe;
   }
   return { modules, columns };
@@ -86,7 +86,8 @@ export function validatePermissions(role, value) {
       if (selected.length) return { error: 'Visible columns may only be configured for modules this account can access.' };
     }
     const valid = Object.keys(COLUMN_OPTIONS[module]);
-    if (selected.some(key => !valid.includes(key)) || new Set(selected).size !== selected.length) {
+    const roleAllowedColumns = role === 'Cashier' && CASHIER_DEFAULT_COLUMNS[module] ? CASHIER_DEFAULT_COLUMNS[module] : valid;
+    if (selected.some(key => !valid.includes(key) || !roleAllowedColumns.includes(key)) || new Set(selected).size !== selected.length) {
       return { error: 'One or more selected table columns are invalid.' };
     }
     columns[module] = selected;

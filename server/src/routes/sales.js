@@ -2,9 +2,10 @@ import { Router } from 'express';
 import { randomUUID } from 'node:crypto';
 import { pool } from '../db.js';
 import { requireAuth } from '../middleware/auth.js';
+import { requireModuleAccessFor } from '../middleware/permissions.js';
 
 const router = Router();
-router.use(requireAuth);
+router.use(requireAuth, requireModuleAccessFor(['Point of Sale']));
 router.post('/', async (req, res, next) => {
   const { customerId = null, paymentMethod, amountReceived, referenceNo = null, discountAmount = 0, discountReason = null, lines = [], negativeStockOverride = false, stockOverrideReason = null, idempotencyKey } = req.body || {};
   if (!Array.isArray(lines) || !lines.length) return res.status(400).json({ error: 'Add at least one item to the sale.' });

@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertTriangle, ArrowDownRight, ArrowUpRight, Boxes, CheckCircle2, ChevronDown, ClipboardList,
-  Clock3, Download, Eye, Filter, ImagePlus, Package, PackagePlus, Plus, RefreshCw, Search, ShieldCheck,
+  Clock3, Download, Eye, Filter, ImagePlus, Package, PackagePlus, Pencil, Plus, RefreshCw, Search, ShieldCheck,
   Tag, Truck, Users, Wallet, X, RotateCcw, History, CircleCheck, CircleHelp, FileText, Save
 } from 'lucide-react';
 import { apiRequest, toUiItems } from './lib/api.js';
@@ -85,7 +85,7 @@ export default function LiveModulePage({ page, auth, items, setItems, notify, on
       const get = path => apiRequest(path, { token });
       try {
         if (page === 'Items') {
-          const [itemData, categoryData] = await Promise.all([get('/items'), get('/categories')]);
+          const [itemData, categoryData] = await Promise.all([get('/items'), get('/categories?includeInactive=' + (canManage ? '1' : '0'))]);
           if (!cancelled) { setItems(toUiItems(itemData.items || [])); setCategories(categoryData.categories || []); }
         } else if (page === 'Inventory') {
           const [itemData, movementData, reconData] = await Promise.all([get('/items'), get('/inventory/movements?limit=100'), get('/inventory/reconciliations')]);
@@ -194,6 +194,30 @@ export default function LiveModulePage({ page, auth, items, setItems, notify, on
       notify(error.message || 'Could not read that image. Try a JPEG, PNG, or WebP file.', 'warning');
     }
   };
+  const openEdit = row => {
+    if (!canManage) return;
+    if (page === 'Items') {
+      setForm({
+        id: row.apiId,
+        name: row.name || '',
+        sku: row.sku || '',
+        barcode: row.barcode || '',
+        categoryId: row.categoryId == null ? '' : String(row.categoryId),
+        sellingPrice: String(row.price ?? ''),
+        reorderThreshold: String(row.reorderThreshold ?? 5),
+        imageData: row.imageUrl || '',
+      });
+    } else if (page === 'Categories') {
+      setForm({
+        id: Number(row.id),
+        name: row.name || '',
+        description: row.description || '',
+        isActive: Number(row.isActive) ? '1' : '0',
+      });
+    } else return;
+    setModal('edit');
+  };
+
   const openCreate = () => {
     const today = new Date();
     const iso = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0') + '-' + String(today.getDate()).padStart(2, '0');
@@ -228,24 +252,46 @@ export default function LiveModulePage({ page, auth, items, setItems, notify, on
   const submitCreate = async event => {
     event.preventDefault();
     if (busy) return;
+    const editing = modal === 'edit';
     let path = '';
+    let method = editing ? 'PATCH' : 'POST';
     let payload = {};
+
     if (page === 'Items') {
       payload = {
-        name: form.name, sku: String(form.sku || '').trim() || undefined, categoryId: form.categoryId ? Number(form.categoryId) : null,
-        sellingPrice: Number(form.sellingPrice), initialCost: Number(form.initialCost || 0),
-        initialQty: Number(form.initialQty || 0), reorderThreshold: Number(form.reorderThreshold || 5),
-        barcode: form.barcode || null, imageData: form.imageData || null,
+        name: form.name,
+        categoryId: form.categoryId ? Number(form.categoryId) : null,
+        sellingPrice: Number(form.sellingPrice),
+        reorderThreshold: Number(form.reorderThreshold || 5),
+        barcode: form.barcode || null,
+        imageData: form.imageData || null,
       };
-      path = '/items';
+      const enteredSku = String(form.sku || '').trim();
+      if (enteredSku) payload.sku = enteredSku;
+      if (editing) {
+        path = '/items/' + encodeURIComponent(form.id);
+      } else {
+        payload.initialCost = Number(form.initialCost || 0);
+        payload.initialQty = Number(form.initialQty || 0);
+        path = '/items';
+      }
     } else if (page === 'Categories') {
-      payload = { name: form.name, description: form.description || null }; path = '/categories';
+      payload = { name: form.name, description: form.description || null };
+      if (editing) {
+        payload.isActive = form.isActive === '1';
+        path = '/categories/' + encodeURIComponent(form.id);
+      } else {
+        path = '/categories';
+      }
     } else if (page === 'Suppliers') {
-      payload = { name: form.name, contactName: form.contactName, email: form.email, phone: form.phone, address: form.address, notes: form.notes }; path = '/suppliers';
+      payload = { name: form.name, contactName: form.contactName, email: form.email, phone: form.phone, address: form.address, notes: form.notes };
+      path = '/suppliers';
     } else if (page === 'Customers') {
-      payload = { name: form.name, email: form.email, phone: form.phone, notes: form.notes }; path = '/customers';
+      payload = { name: form.name, email: form.email, phone: form.phone, notes: form.notes };
+      path = '/customers';
     } else if (page === 'Staff & Roles') {
-      payload = { name: form.name, email: form.email, role: form.role, password: form.password }; path = '/staff';
+      payload = { name: form.name, email: form.email, role: form.role, password: form.password };
+      path = '/staff';
     } else if (page === 'Purchases') {
       const lines = (form.lines || []).map(line => ({ itemId: Number(line.itemId), quantity: Number(line.quantity), unitCost: Number(line.unitCost) }));
       if (!lines.length || lines.some(line => !Number.isInteger(line.itemId) || line.itemId < 1 || !Number.isInteger(line.quantity) || line.quantity < 1 || !Number.isFinite(line.unitCost) || line.unitCost < 0)) {
@@ -255,8 +301,16 @@ export default function LiveModulePage({ page, auth, items, setItems, notify, on
       payload = { supplierId: form.supplierId ? Number(form.supplierId) : null, purchaseDate: form.purchaseDate, notes: form.notes || null, additionalCost: 0, lines };
       path = '/purchases';
     } else return;
-    if (!String(form.name || '').trim() && page !== 'Purchases') { notify('Please fill in the required name field.', 'warning'); return; }
-    await runRequest(path, 'POST', payload, page === 'Purchases' ? 'Purchase order created. Stock will change only when quantities are received.' : ({ Items: 'Item created.', Categories: 'Category created.', Suppliers: 'Supplier created.', Customers: 'Customer created.', 'Staff & Roles': 'Staff account created.' }[page] || 'Record created.'));
+
+    if (!String(form.name || '').trim() && page !== 'Purchases') {
+      notify('Please fill in the required name field.', 'warning');
+      return;
+    }
+    const success = editing
+      ? (page === 'Items' ? 'Item details updated.' : 'Category details updated.')
+      : page === 'Purchases' ? 'Purchase order created. Stock will change only when quantities are received.'
+      : ({ Items: 'Item created.', Categories: 'Category created.', Suppliers: 'Supplier created.', Customers: 'Customer created.', 'Staff & Roles': 'Staff account created.' }[page] || 'Record created.');
+    await runRequest(path, method, payload, success);
   };
 
   const setLine = (index, key, value) => setForm(old => ({ ...old, lines: old.lines.map((line, i) => i === index ? { ...line, [key]: value } : line) }));

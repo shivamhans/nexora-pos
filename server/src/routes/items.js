@@ -47,4 +47,86 @@ router.post('/', allowRoles('Admin', 'Manager'), async (req, res, next) => {
     next(error);
   }
 });
+router.patch('/:id', allowRoles('Admin', 'Manager'), async (req, res, next) => {
+  const id = Number(req.params.id);
+  if (!Number.isSafeInteger(id) || id < 1) return res.status(400).json({ error: 'Invalid item ID.' });
+
+  const body = req.body || {};
+  const fields = [];
+  const values = [];
+  const remember = (column, value) => { fields.push(column + ' = ?'); values.push(value); };
+
+  if (Object.hasOwn(body, 'name')) {
+    const name = String(body.name || '').trim();
+    if (!name || name.length > 200) return res.status(400).json({ error: 'Item name is required (max 200 characters).' });
+    remember('name', name);
+  }
+  if (Object.hasOwn(body, 'sku')) {
+    const sku = String(body.sku || '').trim();
+    if (!sku || sku.length > 80) return res.status(400).json({ error: 'SKU must be non-empty and no longer than 80 characters. Leave it unchanged to keep the existing SKU.' });
+    remember('sku', sku);
+  }
+  if (Object.hasOwn(body, 'barcode')) {
+    const barcode = body.barcode == null ? null : String(body.barcode).trim();
+    if (barcode && barcode.length > 100) return res.status(400).json({ error: 'Barcode must be 100 characters or fewer.' });
+    remember('barcode', barcode || null);
+  }
+  if (Object.hasOwn(body, 'categoryId')) {
+    const raw = body.categoryId;
+    const categoryId = raw == null || raw === '' ? null : Number(raw);
+    if (categoryId !== null && (!Number.isSafeInteger(categoryId) || categoryId < 1)) return res.status(400).json({ error: 'Choose a valid category.' });
+    if (categoryId !== null) {
+      const [categoryRows] = await pool.execute('SELECT id FROM categories WHERE id = ?', [categoryId]);
+      if (!categoryRows[0]) return res.status(400).json({ error: 'The selected category does not exist.' });
+    }
+    remember('category_id', categoryId);
+  }
+  if (Object.hasOwn(body, 'sellingPrice')) {
+    const price = Number(body.sellingPrice);
+    if (!Number.isFinite(price) || price < 0 || price > 9999999999999999) return res.status(400).json({ error: 'Selling price must be a valid non-negative amount.' });
+    remember('selling_price', price);
+  }
+  if (Object.hasOwn(body, 'reorderThreshold')) {
+    const threshold = Number(body.reorderThreshold);
+    if (!Number.isSafeInteger(threshold) || threshold < 0) return res.status(400).json({ error: 'Low-stock threshold must be a non-negative whole number.' });
+    remember('reorder_threshold', threshold);
+  }
+  if (Object.hasOwn(body, 'imageData')) {
+    const photo = body.imageData == null || body.imageData === '' ? null : String(body.imageData);
+    const validPhoto = photo == null || (photo.length <= 700000 && /^data:image\/(?:jpeg|png|webp);base64,[A-Za-z0-9+/]+={0,2}$/.test(photo));
+    if (!validPhoto) return res.status(400).json({ error: 'Product photos must be JPEG, PNG, or WebP and no larger than 700 KB after compression.' });
+    remember('image_data', photo);
+  }
+  if (!fields.length) return res.status(400).json({ error: 'Provide at least one item detail to update.' });
+
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+    const [beforeRows] = await connection.execute(
+      'SELECT id, name, sku, barcode, category_id AS categoryId, selling_price AS sellingPrice, reorder_threshold AS reorderThreshold, qty_on_hand AS onHand, avg_cost AS averageCost, image_data IS NOT NULL AS hasImage, is_active AS isActive FROM items WHERE id = ? FOR UPDATE',
+      [id]
+    );
+    if (!beforeRows[0]) {
+      await connection.rollback();
+      return res.status(404).json({ error: 'Item not found.' });
+    }
+    // Product edits never write qty_on_hand or avg_cost. Stock and cost changes
+    // must go through the stock movement ledger and receiving workflows.
+    await connection.execute('UPDATE items SET ' + fields.join(', ') + ' WHERE id = ?', [...values, id]);
+    const [afterRows] = await connection.execute(
+      'SELECT id, name, sku, barcode, category_id AS categoryId, selling_price AS sellingPrice, reorder_threshold AS reorderThreshold, qty_on_hand AS onHand, avg_cost AS averageCost, image_data IS NOT NULL AS hasImage, is_active AS isActive, updated_at AS updatedAt FROM items WHERE id = ?',
+      [id]
+    );
+    await connection.execute(
+      'INSERT INTO audit_logs (user_id, action, entity_type, entity_id, before_json, after_json) VALUES (?, ?, ?, ?, ?, ?)',
+      [req.user.sub, 'ITEM_UPDATED', 'ITEM', id, JSON.stringify(beforeRows[0]), JSON.stringify(afterRows[0])]
+    );
+    await connection.commit();
+    res.json({ item: afterRows[0] });
+  } catch (error) {
+    await connection.rollback();
+    if (error.code === 'ER_DUP_ENTRY') return res.status(409).json({ error: 'That SKU or barcode is already assigned to another item.' });
+    next(error);
+  } finally { connection.release(); }
+});
 export default router;

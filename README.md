@@ -13,6 +13,7 @@ The draft feature branch now includes:
 - **Per-user permissions:** Admins can open **Permissions** for Manager/Cashier accounts, choose which workspace modules they may open, and choose which table columns are visible in each enabled table. The server enforces module access and role limits; Admin accounts always retain full access. Item average cost is omitted from the item-list API when the signed-in user has no enabled Items/Inventory average-cost column.
 
 - SKU auto-generation when creating an item without a custom code, compressed item-photo storage in MySQL, live product photos in the POS/catalog, and receipt-only printing.
+- **WhatsApp receipts:** the POS completion screen creates a branded, shareable PNG receipt with the saved business name, receipt number/date, customer, item lines, subtotal/discount/total, and payment details. On browsers supporting file sharing, use the native share sheet and choose WhatsApp. On browsers without it (common for local HTTP LAN pages), Nexora downloads the PNG and opens a prefilled WhatsApp message; attach the downloaded PNG manually before sending.
 - Supplier/customer directories, purchase orders and receiving with weighted-average-cost updates.
 - Searchable transaction history and partial returns with quantity/refund checks, optional restocking, manual settlement records, stock movements and audit history.
 - Admin-only staff management: invite staff, assign roles, activate/deactivate accounts, and reset passwords. Protected APIs reload current account role/status.

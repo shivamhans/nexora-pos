@@ -13,9 +13,33 @@ export default function LoginScreen({ onLogin, onDemo }) {
 
   useEffect(() => {
     let alive = true;
-    fetch(`${API_BASE_URL}/health`).then(r => r.ok ? r.json() : Promise.reject())
-      .then(data => { if (alive) { setApiOnline(data.status === 'ok'); setDbOnline(data.database === 'connected'); } })
-      .catch(() => { if (alive) setApiOnline(false); });
+    const apiIsNgrok = (() => {
+      try {
+        const hostname = new URL(API_BASE_URL).hostname;
+        return hostname.endsWith('.ngrok-free.app') || hostname.endsWith('.ngrok.app');
+      } catch { return false; }
+    })();
+    fetch(`${API_BASE_URL}/health`, {
+      cache: 'no-store',
+      headers: apiIsNgrok ? { 'ngrok-skip-browser-warning': 'true' } : {},
+    }).then(async response => {
+      if (!response.ok) throw new Error('Health check returned HTTP ' + response.status);
+      const contentType = response.headers.get('content-type') || '';
+      if (!contentType.includes('application/json')) {
+        throw new Error('API returned a non-JSON response. Check that VITE_API_URL points to the ngrok tunnel for port 4001.');
+      }
+      return response.json();
+    }).then(data => {
+      if (alive) {
+        setApiOnline(data.status === 'ok');
+        setDbOnline(data.database === 'connected');
+      }
+    }).catch(error => {
+      if (alive) {
+        setApiOnline(false);
+        console.warn('Nexora API health check failed:', error);
+      }
+    });
     return () => { alive = false; };
   }, []);
 

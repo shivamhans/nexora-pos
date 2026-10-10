@@ -1,9 +1,10 @@
 import { Router } from 'express';
 import { pool } from '../db.js';
 import { requireAuth } from '../middleware/auth.js';
+import { requireModuleAccessFor } from '../middleware/permissions.js';
 
 const router = Router();
-router.use(requireAuth);
+router.use(requireAuth, requireModuleAccessFor(['Dashboard', 'Reports']));
 const isoDate = value => /^\d{4}-\d{2}-\d{2}$/.test(String(value || '')) && !Number.isNaN(Date.parse(String(value) + 'T00:00:00Z'));
 const money2 = value => Number(Number(value || 0).toFixed(2));
 const dateString = date => date.toISOString().slice(0, 10);

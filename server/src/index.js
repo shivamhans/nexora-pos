@@ -20,10 +20,29 @@ import reportsRoutes from './routes/reports.js';
 const app = express();
 app.use(helmet());
 const configuredOrigins = (process.env.CLIENT_ORIGIN || 'http://localhost:5173,http://localhost:5174').split(',').map(origin => origin.trim()).filter(Boolean);
+const lanAccessEnabled = String(process.env.LAN_ACCESS || 'true').toLowerCase() === 'true';
+
+function isPrivateIPv4(hostname) {
+  const parts = String(hostname || '').split('.');
+  if (parts.length !== 4 || parts.some(part => part.trim() === '' || !Number.isInteger(Number(part)) || Number(part) < 0 || Number(part) > 255)) return false;
+  const [a, b] = parts.map(Number);
+  return a === 10 || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168);
+}
+
+function isAllowedLanOrigin(origin) {
+  if (!lanAccessEnabled || !origin) return false;
+  try {
+    const url = new URL(origin);
+    return url.protocol === 'http:' && Boolean(url.port) && isPrivateIPv4(url.hostname) && url.origin === origin;
+  } catch {
+    return false;
+  }
+}
+
 app.use(cors({
   origin(origin, callback) {
     const isLocalViteOrigin = /^http:\/\/(localhost|127\.0\.0\.1):\d+$/.test(origin || '');
-    if (!origin || configuredOrigins.includes(origin) || isLocalViteOrigin) return callback(null, true);
+    if (!origin || configuredOrigins.includes(origin) || isLocalViteOrigin || isAllowedLanOrigin(origin)) return callback(null, true);
     return callback(new Error('Origin is not allowed by CORS.'));
   },
 }));
@@ -57,4 +76,5 @@ app.use((error, _req, res, _next) => {
   res.status(500).json({ error: process.env.NODE_ENV === 'production' ? 'An unexpected server error occurred.' : error.message || 'Unexpected server error.' });
 });
 const port = Number(process.env.PORT || 4001);
-app.listen(port, () => console.log(`Nexora POS API listening on http://localhost:${port}`));
+const host = process.env.HOST || '0.0.0.0';
+app.listen(port, host, () => console.log('Nexora POS API listening on ' + host + ':' + port));

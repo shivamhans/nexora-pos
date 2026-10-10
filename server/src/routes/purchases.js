@@ -167,6 +167,45 @@ router.patch('/:id', allowRoles('Admin', 'Manager'), async (req, res, next) => {
     next(error);
   } finally { connection.release(); }
 });
+router.post('/:id/cancel', allowRoles('Admin', 'Manager'), async (req, res, next) => {
+  const purchaseId = Number(req.params.id);
+  if (!validId(purchaseId)) return res.status(400).json({ error: 'Invalid purchase ID.' });
+
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+    const [headers] = await connection.execute(
+      'SELECT id, purchase_no AS purchaseNo, status, total_amount AS totalAmount FROM purchases WHERE id = ? FOR UPDATE',
+      [purchaseId]
+    );
+    const purchase = headers[0];
+    if (!purchase) { await connection.rollback(); return res.status(404).json({ error: 'Purchase not found.' }); }
+    if (purchase.status !== 'ORDERED') {
+      await connection.rollback();
+      return res.status(409).json({ error: 'Only an ORDERED purchase can be cancelled. Partially received, received, or already cancelled purchases cannot be cancelled.' });
+    }
+    const [lines] = await connection.execute(
+      'SELECT id, item_id AS itemId, quantity_ordered AS quantityOrdered, quantity_received AS quantityReceived FROM purchase_items WHERE purchase_id = ? FOR UPDATE',
+      [purchaseId]
+    );
+    if (lines.some(line => Number(line.quantityReceived) > 0)) {
+      await connection.rollback();
+      return res.status(409).json({ error: 'This purchase has received stock and cannot be cancelled. Resolve outstanding quantities through the normal stock workflows.' });
+    }
+    const before = { ...purchase, status: 'ORDERED', lines };
+    await connection.execute("UPDATE purchases SET status = 'CANCELLED' WHERE id = ?", [purchaseId]);
+    const after = { ...purchase, status: 'CANCELLED', cancelledBy: req.user.sub, cancelledAt: new Date().toISOString() };
+    await connection.execute(
+      'INSERT INTO audit_logs (user_id, action, entity_type, entity_id, before_json, after_json) VALUES (?, ?, ?, ?, ?, ?)',
+      [req.user.sub, 'PURCHASE_CANCELLED', 'PURCHASE', purchaseId, JSON.stringify(before), JSON.stringify(after)]
+    );
+    await connection.commit();
+    res.json({ purchase: { id: purchaseId, purchaseNo: purchase.purchaseNo, status: 'CANCELLED', totalAmount: Number(purchase.totalAmount) }, message: 'Purchase cancelled. Inventory was not changed.' });
+  } catch (error) {
+    await connection.rollback();
+    next(error);
+  } finally { connection.release(); }
+});
 router.post('/:id/receive', allowRoles('Admin', 'Manager'), async (req, res, next) => {
   const purchaseId = Number(req.params.id);
   const { lines = [] } = req.body || {};

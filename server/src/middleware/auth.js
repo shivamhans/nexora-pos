@@ -1,5 +1,6 @@
 import jwt from 'jsonwebtoken';
 import { pool } from '../db.js';
+import { effectivePermissions } from './permissions.js';
 
 export async function requireAuth(req, res, next) {
   const header = req.headers.authorization || '';
@@ -12,10 +13,10 @@ export async function requireAuth(req, res, next) {
     return res.status(401).json({ error: 'Session is invalid or expired.' });
   }
   try {
-    const [rows] = await pool.execute('SELECT id, name, email, role, is_active AS isActive FROM users WHERE id = ? LIMIT 1', [claims.sub]);
+    const [rows] = await pool.execute('SELECT id, name, email, role, is_active AS isActive, permissions_json AS permissionsJson FROM users WHERE id = ? LIMIT 1', [claims.sub]);
     const user = rows[0];
     if (!user || !Boolean(Number(user.isActive))) return res.status(401).json({ error: 'This account is inactive or no longer exists. Sign in again or contact an Admin.' });
-    req.user = { ...claims, sub: user.id, name: user.name, email: user.email, role: user.role };
+    req.user = { ...claims, sub: user.id, name: user.name, email: user.email, role: user.role, permissions: effectivePermissions(user.role, user.permissionsJson) };
     next();
   } catch (error) { next(error); }
 }

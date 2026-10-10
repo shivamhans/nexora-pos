@@ -820,7 +820,7 @@ export default function LiveModulePage({ page, auth, items, setItems, notify, on
           .map(module=><div className="permission-column-group" key={module}>
             <div className="permission-column-title">{module}</div>
             <div className="permission-column-grid">
-              {Object.entries(PERMISSION_COLUMN_OPTIONS[module]).map(([column,label])=><label className="permission-choice" key={column}>
+              {Object.entries(PERMISSION_COLUMN_OPTIONS[module]).filter(([column]) => form.staffRole !== 'Cashier' || !CASHIER_PERMISSION_COLUMNS[module] || CASHIER_PERMISSION_COLUMNS[module].includes(column)).map(([column,label])=><label className="permission-choice" key={column}>
                 <input type="checkbox" checked={(form.permissionColumns?.[module] || (form.staffRole === 'Cashier' && CASHIER_PERMISSION_COLUMNS[module]) || Object.keys(PERMISSION_COLUMN_OPTIONS[module])).includes(column)} onChange={e=>togglePermissionColumn(module,column,e.target.checked)}/>
                 <span>{label}</span>
               </label>)}

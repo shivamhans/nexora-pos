@@ -76,7 +76,9 @@ router.patch('/:id', allowRoles('Admin', 'Manager'), async (req, res, next) => {
     const categoryId = raw == null || raw === '' ? null : Number(raw);
     if (categoryId !== null && (!Number.isSafeInteger(categoryId) || categoryId < 1)) return res.status(400).json({ error: 'Choose a valid category.' });
     if (categoryId !== null) {
-      const [categoryRows] = await pool.execute('SELECT id FROM categories WHERE id = ?', [categoryId]);
+      let categoryRows;
+      try { [categoryRows] = await pool.execute('SELECT id FROM categories WHERE id = ?', [categoryId]); }
+      catch (error) { return next(error); }
       if (!categoryRows[0]) return res.status(400).json({ error: 'The selected category does not exist.' });
     }
     remember('category_id', categoryId);

@@ -308,3 +308,14 @@ select{color-scheme:light}
 .permission-empty{padding:16px;text-align:center;color:var(--muted);background:var(--surface);border:1px dashed var(--line);border-radius:10px;font-size:11px}
 @media(max-width:720px){.permission-module-grid,.permission-column-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.permission-choice{min-width:0;overflow-wrap:anywhere;padding:8px}.permission-intro{padding:11px}}
 @media(max-width:480px){.permission-module-grid,.permission-column-grid{grid-template-columns:1fr}}
+
+
+/* Receipt sharing: accommodate Print, WhatsApp and New Sale on small screens. */
+.success-actions{display:flex;align-items:center;justify-content:center;gap:9px;flex-wrap:wrap}
+.success-actions .btn{min-width:0}
+.receipt-share-hint{max-width:440px;margin:9px 0 0!important;font-size:10px!important;line-height:1.55;color:var(--muted);text-align:center}
+@media(max-width:520px){
+  .success-actions{width:100%;gap:8px}
+  .success-actions .btn{flex:1 1 42%;font-size:10px;padding:0 10px;min-height:40px}
+  .receipt-share-hint{padding:0 6px}
+}

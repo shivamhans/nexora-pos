@@ -25,6 +25,7 @@ CREATE TABLE IF NOT EXISTS users (
   email VARCHAR(190) NOT NULL UNIQUE,
   password_hash VARCHAR(255) NOT NULL,
   role ENUM('Admin','Manager','Cashier') NOT NULL DEFAULT 'Cashier',
+  permissions_json JSON NULL,
   is_active BOOLEAN NOT NULL DEFAULT TRUE,
   last_login_at DATETIME NULL,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,

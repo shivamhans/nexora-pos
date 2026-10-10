@@ -108,33 +108,22 @@ npm run dev
 
 Open the Vite URL printed in the terminal (normally `http://localhost:5173`, or `http://localhost:5174` if 5173 is occupied). Local Vite origins are allowed by the API. If you change `JWT_SECRET`, restart the API and sign in again.
 
-## Temporary remote testing with ngrok (development only)
+## Same-Wi-Fi LAN setup (recommended for nearby devices)
 
-The Vite frontend and Express API are separate local services. A public frontend tunnel alone is not enough: a remote browser cannot reach your PC's `localhost:4001`. Create two separate tunnels.
+Use this when the PC running Nexora/MySQL and phones/tablets are connected to the same Wi-Fi. No ngrok tunnel is needed.
 
-1. Start the API on port 4001, then start the frontend on port 5175 (or the local Vite port you use).
-2. In separate terminals, run `ngrok http 5175` and `ngrok http 4001`. Keep each tunnel running and copy each HTTPS URL exactly.
-3. In `client/.env.local`, set the frontend hostname and the API URL separately:
+1. On the Windows PC running Nexora, open PowerShell and run `ipconfig`. Find the **IPv4 Address** under the connected Wi-Fi adapter (for example `192.168.1.23`). Use your actual address.
+2. In `server/.env`, set `PORT=4001`, `HOST=0.0.0.0`, and `LAN_ACCESS=true`. Keep `DB_HOST=127.0.0.1` because MySQL runs on the same PC.
+3. In `client/.env.local` or `client/.env`, set `VITE_HOST=0.0.0.0`, `VITE_PORT=5175`, and `VITE_API_URL=http://localhost:4001/api`. Remove old `NGROK_HOST` and `https://...ngrok-free.app/api` values. Nexora automatically replaces localhost in this API URL with the private IP when a LAN device opens the frontend.
+4. In separate terminals, start Express from `server` with `npm run dev`, and Vite from `client` with `npm run dev -- --host 0.0.0.0 --port 5175`. If Windows Defender Firewall prompts, allow Node.js on **Private networks only**.
+5. On the host PC, open `http://localhost:5175`. On a phone/tablet on the same Wi-Fi, open `http://YOUR-PC-IP:5175`, replacing the placeholder with the IPv4 address from step 1.
+6. If it cannot connect, first open `http://YOUR-PC-IP:4001/api/health` from that device. It should return JSON with `"status":"ok"` and `"database":"connected"`. If it times out, check Windows Firewall inbound TCP ports 4001 and 5175 on the Private profile, and make sure the device isn't on guest Wi-Fi or blocked by router/AP client isolation.
 
-   ```dotenv
-   NGROK_HOST=your-FRONTEND-host.ngrok-free.app
-   VITE_API_URL=https://your-API-host.ngrok-free.app/api
-   ```
+LAN CORS allows HTTP origins using private IPv4 addresses only when `LAN_ACCESS=true`; exact `CLIENT_ORIGIN` entries continue to work. Do not forward ports 4001/5175 on your router. Use trusted devices and require each user to sign in.
 
-   `NGROK_HOST` is the hostname in the browser address bar. `VITE_API_URL` must be the other tunnel, the one forwarding to port 4001. Do not set it to `localhost` for remote devices.
-4. In `server/.env`, set `CLIENT_ORIGIN` to a comma-separated list containing your exact frontend tunnel origin. For example:
+## Optional remote testing with ngrok
 
-   ```dotenv
-   CLIENT_ORIGIN=http://localhost:5173,http://localhost:5174,http://localhost:5175,https://your-FRONTEND-host.ngrok-free.app
-   ```
-
-   Use the frontend URL, not the API tunnel URL. CORS matches the full origin exactly.
-5. Restart Vite and Express after editing environment files. Vite's allowed host value is read when it starts. Ngrok free hostnames can change between sessions, so update both files if they change.
-
-Nexora sends `ngrok-skip-browser-warning: true` to the API tunnel for both the login-screen health check and API calls, avoiding the free-tier HTML warning page.
-
-**Security note:** these are public development tunnels. Use test data and a strong unique JWT secret, and stop tunnels when you are done. Do not use Vite's development server or a public tunnel as production hosting.
-
+For devices **not** on the same Wi-Fi, use separate ngrok tunnels. Set `NGROK_HOST` to the exact frontend hostname, set `VITE_API_URL` to the HTTPS API tunnel URL ending in `/api`, add the exact frontend HTTPS origin to `CLIENT_ORIGIN`, and restart both services. Do not mix the ngrok API URL with the same-Wi-Fi setup.
 
 ## Confirmed v1 business rules
 - One business and one store.

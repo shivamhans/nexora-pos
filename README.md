@@ -14,7 +14,7 @@ The draft feature branch now includes:
 - **Per-user permissions:** Admins can open **Permissions** for Manager/Cashier accounts, choose which workspace modules they may open, and choose which table columns are visible in each enabled table. The server enforces module access and role limits; Admin accounts always retain full access. Item average cost is omitted from the item-list API when the signed-in user has no enabled Items/Inventory average-cost column.
 
 - SKU auto-generation when creating an item without a custom code, compressed item-photo storage in MySQL, live product photos in the POS/catalog, and receipt-only printing.
-- **WhatsApp receipts:** POS lets the cashier choose a saved customer (autofilling their phone) or enter a WhatsApp number for a walk-in. After the sale, Nexora creates a branded receipt PNG, downloads it and redirects to that customer's specific `wa.me` chat with the receipt summary prefilled. Attach the downloaded PNG in the chat before sending; WhatsApp click-to-chat links cannot auto-attach a local image. Ten-digit local numbers default to India (+91); enter a full country code for other countries.
+- **WhatsApp receipts:** POS lets the cashier choose a saved customer (autofilling their phone) or enter a WhatsApp number for a walk-in. After the sale, Nexora creates a branded receipt PNG and uses the browser's native file-share sheet to share the image only (no long text receipt) when supported, so the cashier can choose WhatsApp and the recipient. If image sharing is unavailable—commonly when the site is opened over plain HTTP on a private LAN—Nexora downloads the PNG and opens the customer's WhatsApp chat without prefilled text; attach the PNG manually before sending. A WhatsApp click-to-chat URL cannot attach a local image automatically. Ten-digit local numbers default to India (+91); enter a full country code for other countries.
 - Supplier/customer directories, purchase orders and receiving with weighted-average-cost updates.
 - Searchable transaction history and partial returns with quantity/refund checks, optional restocking, manual settlement records, stock movements and audit history.
 - Admin-only staff management: invite staff, assign roles, activate/deactivate accounts, and reset passwords. Protected APIs reload current account role/status.
@@ -161,3 +161,8 @@ Run the frontend build and backend syntax CI, then test the workflows against a 
 - Use a strong unique JWT secret and application passwords.
 - The UI is not the security boundary; the server enforces roles and account status.
 - The feature branch is still a draft and should not be used for live sales until end-to-end verification is complete.
+
+
+## Return lookup note
+
+For returns, enter the full receipt/sale ID or the final four characters of the receipt number (letters and digits, e.g. `D275`). Four numeric digits also match the last four digits of the numeric sale ID. If multiple sales share that suffix, the API asks for the full identifier rather than selecting one.

@@ -10,7 +10,7 @@ import {
   Package, PackageCheck, PackagePlus, Plus, Search, Settings, ShieldCheck, ShoppingBag,
   ShoppingCart, SlidersHorizontal, Sparkles, Sun, Tag, Truck, Users, Wallet, X, Zap,
   ReceiptText, ScanBarcode, RotateCcw, TrendingUp, CircleDollarSign, Warehouse, UserRound, RefreshCw, CircleCheck,
-  ChevronUp, AlertTriangle, CheckCheck, Printer, Banknote, Smartphone, CreditCard as CardIcon
+  ChevronUp, AlertTriangle, CheckCheck, Printer, Banknote, Smartphone, MessageCircle, CreditCard as CardIcon
 } from 'lucide-react';
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis, BarChart, Bar, PieChart, Pie, Cell } from 'recharts';
 
@@ -194,6 +194,92 @@ function Inventory({ items, setItems, notify, onNavigate }) {
   return <><SectionTitle eyebrow="CATALOG & STOCK" title="Inventory" subtitle="Keep your stock accurate, organized, and ready to sell." action={<><Button icon={Download} onClick={()=>notify('Inventory export is a demo action in this phase.')}>Export</Button><Button variant="primary" icon={Plus} onClick={()=>onNavigate('Items')}>Add item</Button></>}/><div className="stats-grid inventory-stats"><StatCard icon={Boxes} label="Total items" value={String(items.length).padStart(2,'0')} note="Across all categories" accent="violet"/><StatCard icon={PackageCheck} label="In stock" value={String(items.filter(i=>i.stock>8).length).padStart(2,'0')} note="Healthy stock levels" accent="green"/><StatCard icon={AlertTriangle} label="Low stock" value={String(items.filter(i=>i.stock>0&&i.stock<=8).length).padStart(2,'0')} note="At or below reorder level" accent="amber"/><StatCard icon={Package} label="Out of stock" value={String(items.filter(i=>i.stock===0).length).padStart(2,'0')} note="Requires attention" accent="blue"/></div><section className="panel inventory-panel"><div className="inventory-toolbar"><div className="tabs"><button className={status==='All items'?'tab active':'tab'} onClick={()=>setStatus('All items')}>All items <span>{items.length}</span></button><button className={status==='Low stock'?'tab active':'tab'} onClick={()=>setStatus('Low stock')}>Low stock <span>{items.filter(i=>i.stock>0&&i.stock<=8).length}</span></button><button className={status==='Out of stock'?'tab active':'tab'} onClick={()=>setStatus('Out of stock')}>Out of stock <span>{items.filter(i=>i.stock===0).length}</span></button></div><div className="toolbar-controls"><div className="search-box compact"><Search size={16}/><input placeholder="Search items or SKU..." value={query} onChange={e=>setQuery(e.target.value)}/><kbd>⌘ K</kbd></div><select className="select-control" value={category} onChange={e=>setCategory(e.target.value)}>{categories.map(c=><option key={c}>{c}</option>)}</select><Button icon={SlidersHorizontal} onClick={()=>notify('Advanced inventory filters are planned for the next phase.')}>Filters</Button></div></div>{selected.length>0&&<div className="bulk-bar"><span>{selected.length} item{selected.length>1?'s':''} selected</span><Button variant="text" onClick={()=>setSelected([])}>Clear selection</Button><Button icon={Download} onClick={()=>notify('Bulk export queued in the demo.')}>Export selected</Button></div>}<div className="table-wrap inventory-table"><table><thead><tr><th className="check-col"><input type="checkbox" checked={filtered.length>0&&filtered.every(i=>selected.includes(i.id))} onChange={e=>setSelected(e.target.checked?filtered.map(i=>i.id):[])}/></th><th>ITEM</th><th>SKU</th><th>CATEGORY</th><th>SELLING PRICE</th><th>ON HAND</th><th>STOCK STATUS</th><th></th></tr></thead><tbody>{filtered.map(it=><tr key={it.id}><td><input type="checkbox" checked={selected.includes(it.id)} onChange={()=>toggle(it.id)}/></td><td><div className="inventory-product"><div className={`product-mini mini-${it.color}`}>{it.icon}</div><div><b>{it.name}</b><small>{it.displayId || it.id}</small></div></div></td><td className="sku-cell">{it.sku}</td><td><span className="category-label">{it.category}</span></td><td className="amount-cell">{formatMoney(it.price)}</td><td><b>{it.stock}</b><span className="muted"> units</span></td><td>{it.stock===0?<Pill tone="danger" dot>Out of stock</Pill>:it.stock<=8?<Pill tone="warning" dot>Low stock</Pill>:<Pill tone="success" dot>In stock</Pill>}</td><td><button className="icon-button small" onClick={()=>notify(`${it.name} · Item actions will be connected in the next phase.`)}><Ellipsis size={18}/></button></td></tr>)}</tbody></table>{filtered.length===0&&<EmptyState icon={Search} title="No items found" text="Try changing your search or filters." action={<Button onClick={()=>{setQuery('');setStatus('All items');setCategory('All categories')}}>Clear filters</Button>}/>}</div><div className="table-footer"><span>Showing <b>{filtered.length===0?0:1}–{filtered.length}</b> of <b>{items.length}</b> items</span><div className="pagination"><button disabled><ChevronLeft size={16}/></button><button className="page-current">1</button><button disabled><ChevronRight size={16}/></button></div></div></section></>;
 }
 
+function roundedRect(ctx, x, y, width, height, radius) {
+  const r = Math.min(radius, width / 2, height / 2);
+  ctx.beginPath(); ctx.moveTo(x + r, y); ctx.lineTo(x + width - r, y);
+  ctx.quadraticCurveTo(x + width, y, x + width, y + r); ctx.lineTo(x + width, y + height - r);
+  ctx.quadraticCurveTo(x + width, y + height, x + width - r, y + height); ctx.lineTo(x + r, y + height);
+  ctx.quadraticCurveTo(x, y + height, x, y + height - r); ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y); ctx.closePath();
+}
+
+function createReceiptPng(sale, businessName, money) {
+  return new Promise((resolve, reject) => {
+    try {
+      const items = Array.isArray(sale?.items) ? sale.items : [];
+      const subtotal = items.reduce((sum, item) => sum + Number(item.price || 0) * Number(item.qty || 0), 0);
+      const discount = Math.max(0, subtotal - Number(sale?.amount || 0));
+      const itemStart = 520;
+      const summaryStart = itemStart + items.length * 64 + 24;
+      const totalCardY = summaryStart + (discount > 0 ? 88 : 48);
+      const paymentY = totalCardY + 96;
+      const footerY = paymentY + 74;
+      const width = 1080, height = footerY + 104;
+      const canvas = document.createElement('canvas'); canvas.width = width; canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) throw new Error('This browser could not prepare the receipt image.');
+      const bg = ctx.createLinearGradient(0, 0, width, height); bg.addColorStop(0, '#f3efff'); bg.addColorStop(1, '#e9f4ff');
+      ctx.fillStyle = bg; ctx.fillRect(0, 0, width, height);
+      ctx.globalAlpha = .26; ctx.strokeStyle = '#b8aaff'; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.arc(970, 75, 84, 0, Math.PI * 2); ctx.stroke(); ctx.beginPath(); ctx.arc(1000, 105, 122, 0, Math.PI * 2); ctx.stroke(); ctx.globalAlpha = 1;
+      const cardX = 40, cardY = 30, cardW = 1000, cardH = height - 60, radius = 34;
+      ctx.save(); ctx.shadowColor = 'rgba(57, 38, 115, .14)'; ctx.shadowBlur = 34; ctx.shadowOffsetY = 12;
+      roundedRect(ctx, cardX, cardY, cardW, cardH, radius); ctx.fillStyle = '#ffffff'; ctx.fill(); ctx.restore();
+      ctx.save(); ctx.beginPath(); ctx.moveTo(cardX + radius, cardY); ctx.lineTo(cardX + cardW - radius, cardY);
+      ctx.quadraticCurveTo(cardX + cardW, cardY, cardX + cardW, cardY + radius); ctx.lineTo(cardX + cardW, cardY + 255);
+      ctx.lineTo(cardX, cardY + 255); ctx.lineTo(cardX, cardY + radius); ctx.quadraticCurveTo(cardX, cardY, cardX + radius, cardY); ctx.closePath(); ctx.clip();
+      const head = ctx.createLinearGradient(cardX, cardY, cardX + cardW, cardY + 255); head.addColorStop(0, '#21173f'); head.addColorStop(.56, '#403076'); head.addColorStop(1, '#7964e8');
+      ctx.fillStyle = head; ctx.fillRect(cardX, cardY, cardW, 255); ctx.globalAlpha = .12; ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(cardX + 830, cardY + 80, 94, 0, Math.PI * 2); ctx.stroke(); ctx.beginPath(); ctx.arc(cardX + 830, cardY + 80, 132, 0, Math.PI * 2); ctx.stroke(); ctx.globalAlpha = 1;
+      roundedRect(ctx, cardX + 42, cardY + 36, 66, 66, 18); ctx.fillStyle = 'rgba(255,255,255,.16)'; ctx.fill(); ctx.fillStyle = '#ffffff';
+      [[0,0],[1,0],[0,1],[1,1]].forEach(([col,row]) => { roundedRect(ctx, cardX + 58 + col * 21, cardY + 52 + row * 21, 13, 13, 4); ctx.fill(); });
+      ctx.textAlign = 'left'; ctx.fillStyle = '#ffffff'; ctx.font = '700 24px Arial, sans-serif'; ctx.fillText('NEXORA POS', cardX + 128, cardY + 61);
+      ctx.fillStyle = 'rgba(255,255,255,.72)'; ctx.font = '600 13px Arial, sans-serif'; ctx.fillText('PAYMENT RECEIPT', cardX + 128, cardY + 86);
+      ctx.font = '700 39px Arial, sans-serif'; ctx.fillStyle = '#ffffff'; ctx.fillText(String(businessName || 'Nexora Store').slice(0, 34), cardX + 42, cardY + 157, cardW - 84);
+      ctx.font = '500 18px Arial, sans-serif'; ctx.fillStyle = 'rgba(255,255,255,.82)'; ctx.fillText('Thank you for shopping with us.', cardX + 44, cardY + 200);
+      roundedRect(ctx, cardX + cardW - 154, cardY + 183, 112, 38, 19); ctx.fillStyle = '#d9ffef'; ctx.fill();
+      ctx.fillStyle = '#17674f'; ctx.font = '700 14px Arial, sans-serif'; ctx.textAlign = 'center'; ctx.fillText('✓ PAID', cardX + cardW - 98, cardY + 207); ctx.restore();
+      ctx.textAlign = 'left'; ctx.fillStyle = '#82799b'; ctx.font = '600 15px Arial, sans-serif'; ctx.fillText('RECEIPT NUMBER', cardX + 42, 321);
+      ctx.fillStyle = '#25203d'; ctx.font = '700 23px Arial, sans-serif'; ctx.fillText(String(sale?.id || '—').slice(0, 35), cardX + 42, 355, 520);
+      ctx.fillStyle = '#82799b'; ctx.font = '600 15px Arial, sans-serif'; ctx.fillText('DATE & TIME', cardX + 590, 321);
+      ctx.fillStyle = '#25203d'; ctx.font = '700 18px Arial, sans-serif'; ctx.fillText(String(sale?.date || new Date().toLocaleString()).slice(0, 36), cardX + 590, 354, 360);
+      ctx.fillStyle = '#82799b'; ctx.font = '600 15px Arial, sans-serif'; ctx.fillText('CUSTOMER', cardX + 42, 395);
+      ctx.fillStyle = '#393253'; ctx.font = '600 19px Arial, sans-serif'; ctx.fillText(String(sale?.customer || 'Walk-in Customer').slice(0, 55), cardX + 42, 422, cardW - 84);
+      ctx.strokeStyle = '#e6e0f3'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(cardX + 42, 450); ctx.lineTo(cardX + cardW - 42, 450); ctx.stroke();
+      ctx.fillStyle = '#82799b'; ctx.font = '700 14px Arial, sans-serif'; ctx.fillText('ITEMS', cardX + 42, 486); ctx.textAlign = 'right'; ctx.fillText('AMOUNT', cardX + cardW - 42, 486); ctx.textAlign = 'left';
+      items.forEach((item, index) => {
+        const y = itemStart + index * 64; ctx.fillStyle = '#292440'; ctx.font = '700 18px Arial, sans-serif';
+        ctx.fillText(String(item.name || 'Item').slice(0, 56), cardX + 42, y + 20, 625);
+        ctx.fillStyle = '#82799b'; ctx.font = '14px Arial, sans-serif'; ctx.fillText(`${Number(item.qty || 0)} × ${money(item.price)}`, cardX + 42, y + 45, 600);
+        ctx.fillStyle = '#292440'; ctx.font = '700 18px Arial, sans-serif'; ctx.textAlign = 'right'; ctx.fillText(money(Number(item.price || 0) * Number(item.qty || 0)), cardX + cardW - 42, y + 28, 300); ctx.textAlign = 'left';
+        ctx.strokeStyle = '#eeeaf6'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(cardX + 42, y + 57); ctx.lineTo(cardX + cardW - 42, y + 57); ctx.stroke();
+      });
+      const drawSummary = (label, value, y, strong = false) => {
+        ctx.textAlign = 'left'; ctx.fillStyle = strong ? '#292440' : '#82799b'; ctx.font = (strong ? '700 19px' : '500 17px') + ' Arial, sans-serif'; ctx.fillText(label, cardX + 42, y);
+        ctx.textAlign = 'right'; ctx.fillStyle = strong ? '#292440' : '#5a536f'; ctx.font = (strong ? '700 20px' : '600 17px') + ' Arial, sans-serif'; ctx.fillText(value, cardX + cardW - 42, y); ctx.textAlign = 'left';
+      };
+      drawSummary('Subtotal', money(subtotal), summaryStart); if (discount > 0) drawSummary('Discount', '−' + money(discount), summaryStart + 40);
+      roundedRect(ctx, cardX + 28, totalCardY, cardW - 56, 66, 18); ctx.fillStyle = '#f1edff'; ctx.fill(); drawSummary('TOTAL PAID', money(sale?.amount || 0), totalCardY + 41, true);
+      drawSummary('Payment method', String(sale?.method || '—'), paymentY, false); if (sale?.method === 'Cash') drawSummary('Change due', money(sale?.change || 0), paymentY + 34, false);
+      ctx.strokeStyle = '#e6e0f3'; ctx.setLineDash([6, 6]); ctx.beginPath(); ctx.moveTo(cardX + 42, footerY - 22); ctx.lineTo(cardX + cardW - 42, footerY - 22); ctx.stroke(); ctx.setLineDash([]);
+      ctx.textAlign = 'center'; ctx.fillStyle = '#6f5bd8'; ctx.font = '700 19px Arial, sans-serif'; ctx.fillText('THANK YOU FOR YOUR PURCHASE ✦', width / 2, footerY + 10);
+      ctx.fillStyle = '#9088a8'; ctx.font = '14px Arial, sans-serif'; ctx.fillText('Powered by Nexora POS', width / 2, footerY + 39);
+      canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('Could not export the receipt image.')), 'image/png');
+    } catch (error) { reject(error); }
+  });
+}
+
+function downloadReceiptBlob(blob, filename) {
+  const url = URL.createObjectURL(blob); const link = document.createElement('a'); link.href = url; link.download = filename;
+  document.body.appendChild(link); link.click(); link.remove(); window.setTimeout(() => URL.revokeObjectURL(url), 30000);
+}
+
+function receiptWhatsAppText(sale, businessName, money) {
+  const items = Array.isArray(sale?.items) ? sale.items : [];
+  const subtotal = items.reduce((sum, item) => sum + Number(item.price || 0) * Number(item.qty || 0), 0);
+  const discount = Math.max(0, subtotal - Number(sale?.amount || 0));
+  return [`*${businessName || 'Nexora Store'}*`, '*Payment receipt*', `Receipt: ${sale?.id || '—'}`, `Date: ${sale?.date || new Date().toLocaleString()}`, `Customer: ${sale?.customer || 'Walk-in Customer'}`, '------------------------', ...items.map(item => `${item.name} × ${item.qty}  ${money(Number(item.price || 0) * Number(item.qty || 0))}`), '------------------------', `Subtotal: ${money(subtotal)}`, ...(discount > 0 ? [`Discount: −${money(discount)}`] : []), `*TOTAL PAID: ${money(sale?.amount || 0)}*`, `Payment method: ${sale?.method || '—'}`, ...(sale?.method === 'Cash' ? [`Change due: ${money(sale?.change || 0)}`] : []), sale?.persisted ? 'Thank you for shopping with us!' : 'DEMO RECEIPT — not a saved transaction.'].join('\n');
+}
 function createIdempotencyKey() {
   // randomUUID() is restricted to secure contexts in some browsers; Nexora is also used over LAN HTTP.
   const cryptoApi = typeof globalThis !== 'undefined' ? globalThis.crypto : undefined;

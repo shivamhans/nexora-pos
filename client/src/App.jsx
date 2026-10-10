@@ -407,18 +407,41 @@ function POS({ items, setItems, notify, role, currency, auth, onUnauthorized, bu
       return;
     }
     const saleForShare = { ...success, phone: customerPhone || success.phone || '' };
-    const caption = receiptWhatsAppText(saleForShare, businessName, money);
     const filename = `nexora-receipt-${String(success.id || 'sale').replace(/[^a-zA-Z0-9_-]/g, '-')}.png`;
-    // Open synchronously from the button click so the browser doesn't block the later WhatsApp redirect.
-    const whatsappTab = window.open('about:blank', '_blank');
+    let canShareFiles = false;
+    try {
+      if (typeof navigator !== 'undefined' && typeof navigator.share === 'function' && typeof navigator.canShare === 'function' && typeof File !== 'undefined') {
+        const probe = new File(['receipt'], 'receipt.png', { type: 'image/png' });
+        canShareFiles = navigator.canShare({ files: [probe] });
+      }
+    } catch { canShareFiles = false; }
+    // WhatsApp click-to-chat accepts text, but cannot pre-attach a local image. Only open a fallback tab when file sharing isn't supported.
+    const whatsappTab = canShareFiles ? null : window.open('about:blank', '_blank');
     setSharingReceipt(true);
     try {
       const blob = await createReceiptPng(saleForShare, businessName, money);
+      const file = typeof File !== 'undefined' ? new File([blob], filename, { type: 'image/png' }) : null;
+      if (canShareFiles && file && navigator.canShare({ files: [file] })) {
+        try {
+          // Share the actual receipt image only; do not send the old long text-only receipt.
+          await navigator.share({ title: `${businessName || 'Nexora Store'} receipt ${success.id}`, files: [file] });
+          notify('Receipt image share opened. Choose WhatsApp and select the customer to send the PNG.', 'success');
+          return;
+        } catch (shareError) {
+          if (shareError?.name === 'AbortError') return;
+          downloadReceiptBlob(blob, filename);
+          const chatUrl = 'https://wa.me/' + phone;
+          if (whatsappTab && !whatsappTab.closed) whatsappTab.location.href = chatUrl;
+          else window.open(chatUrl, '_blank', 'noopener,noreferrer');
+          notify('This browser could not share the image directly. The PNG was downloaded; attach it in the customer chat before sending.', 'info');
+          return;
+        }
+      }
       downloadReceiptBlob(blob, filename);
-      const chatUrl = 'https://wa.me/' + phone + '?text=' + encodeURIComponent(caption);
+      const chatUrl = 'https://wa.me/' + phone;
       if (whatsappTab && !whatsappTab.closed) whatsappTab.location.href = chatUrl;
-      else window.location.href = chatUrl;
-      notify('WhatsApp opened for the customer. Attach the downloaded Nexora receipt PNG in that chat, then send.', 'info');
+      else window.open(chatUrl, '_blank', 'noopener,noreferrer');
+      notify('Receipt PNG downloaded and the customer chat opened. Attach the PNG in WhatsApp before sending; no text receipt was prefilled.', 'info');
     } catch (error) {
       if (whatsappTab && !whatsappTab.closed) whatsappTab.close();
       notify(error?.message || 'Could not create the receipt image. Please use Print receipt instead.', 'warning');

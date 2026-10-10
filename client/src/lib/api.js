@@ -1,5 +1,30 @@
-export const API_BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:4001/api').replace(/\/$/, '');
+const configuredApiBase = (import.meta.env.VITE_API_URL || 'http://localhost:4001/api').replace(/\/$/, '');
 
+function isPrivateIPv4(hostname) {
+  const parts = String(hostname || '').split('.');
+  if (parts.length !== 4 || parts.some(part => part.trim() === '' || !Number.isInteger(Number(part)) || Number(part) < 0 || Number(part) > 255)) return false;
+  const [a, b] = parts.map(Number);
+  return a === 10 || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168);
+}
+
+function resolveApiBaseUrl() {
+  // A remote device's localhost is itself, not the PC running Nexora.
+  // When opened via a private IPv4 address, redirect a local API URL to that same host.
+  if (typeof window !== 'undefined' && isPrivateIPv4(window.location.hostname)) {
+    try {
+      const configured = new URL(configuredApiBase);
+      if (['localhost', '127.0.0.1', '::1'].includes(configured.hostname)) {
+        configured.hostname = window.location.hostname;
+        return configured.toString().replace(/\/$/, '');
+      }
+    } catch {
+      // Keep the configured URL; apiRequest will surface a readable connection error.
+    }
+  }
+  return configuredApiBase;
+}
+
+export const API_BASE_URL = resolveApiBaseUrl();
 export async function apiRequest(path, options = {}) {
   const { token, body, headers = {}, ...rest } = options;
   let response;
@@ -16,7 +41,7 @@ export async function apiRequest(path, options = {}) {
       ...(body === undefined ? {} : { body: JSON.stringify(body) }),
     });
   } catch {
-    throw new Error(`Cannot reach the Nexora API at ${API_BASE_URL}. Start the local server and check your connection.`);
+    throw new Error(`Cannot reach the Nexora API at ${API_BASE_URL}. Check that the API server is running and both devices are on the same Wi-Fi.`);
   }
 
   const text = await response.text();

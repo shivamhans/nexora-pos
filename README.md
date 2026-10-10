@@ -110,30 +110,31 @@ Open the Vite URL printed in the terminal (normally `http://localhost:5173`, or 
 
 ## Temporary remote testing with ngrok (development only)
 
-The Vite frontend and Express API are separate local services. A public frontend tunnel alone is not enough: remote browsers cannot use your PC's \`localhost:4001\`. Create one ngrok tunnel per service.
+The Vite frontend and Express API are separate local services. A public frontend tunnel alone is not enough: a remote browser cannot reach your PC's `localhost:4001`. Create two separate tunnels.
 
-1. Start the API on port 4001. In a separate terminal, start the frontend on port 5175 (or whichever local Vite port you use).
-2. Start the frontend tunnel: \`ngrok http 5175\`. Copy the hostname only from the resulting HTTPS URL, without \`https://\` or a trailing slash; for example, \`example.ngrok-free.app\`.
-3. Start the API tunnel in another terminal: \`ngrok http 4001\`. Copy that HTTPS URL too.
-4. Create \`client/.env.local\` with the exact current tunnel values:
+1. Start the API on port 4001, then start the frontend on port 5175 (or the local Vite port you use).
+2. In separate terminals, run `ngrok http 5175` and `ngrok http 4001`. Keep each tunnel running and copy each HTTPS URL exactly.
+3. In `client/.env.local`, set the frontend hostname and the API URL separately:
 
-   \`\`\`dotenv
-   NGROK_HOST=your-frontend-host.ngrok-free.app
-   VITE_API_URL=https://your-api-host.ngrok-free.app/api
-   \`\`\`
+   ```dotenv
+   NGROK_HOST=your-FRONTEND-host.ngrok-free.app
+   VITE_API_URL=https://your-API-host.ngrok-free.app/api
+   ```
 
-   Replace both examples with the real hostnames ngrok displays. \`NGROK_HOST\` must be the frontend hostname that appears in the browser address bar.
-5. In \`server/.env\`, add the exact frontend HTTPS origin to \`CLIENT_ORIGIN\`, while keeping any local origins you still use. Example:
+   `NGROK_HOST` is the hostname in the browser address bar. `VITE_API_URL` must be the other tunnel, the one forwarding to port 4001. Do not set it to `localhost` for remote devices.
+4. In `server/.env`, set `CLIENT_ORIGIN` to a comma-separated list containing your exact frontend tunnel origin. For example:
 
-   \`\`\`dotenv
-   CLIENT_ORIGIN=http://localhost:5173,http://localhost:5174,http://localhost:5175,https://your-frontend-host.ngrok-free.app
-   \`\`\`
+   ```dotenv
+   CLIENT_ORIGIN=http://localhost:5173,http://localhost:5174,http://localhost:5175,https://your-FRONTEND-host.ngrok-free.app
+   ```
 
-6. Restart both Vite and Express after saving the environment files. Ngrok's free hostname may change each time a tunnel is restarted; update both environment files when it changes.
+   Use the frontend URL, not the API tunnel URL. CORS matches the full origin exactly.
+5. Restart Vite and Express after editing environment files. Vite's allowed host value is read when it starts. Ngrok free hostnames can change between sessions, so update both files if they change.
 
-Vite deliberately allows only the exact hostname in \`NGROK_HOST\`; it does not disable host protection globally. The environment files are git-ignored, so do not commit your local tunnel URLs or secrets.
+Nexora sends `ngrok-skip-browser-warning: true` to the API tunnel for both the login-screen health check and API calls, avoiding the free-tier HTML warning page.
 
-**Security note:** ngrok URLs make your development services reachable from the internet. Use test data and a strong unique JWT secret. Don't expose a live store database or use a Vite development server as a production deployment. Stop both tunnels when finished.
+**Security note:** these are public development tunnels. Use test data and a strong unique JWT secret, and stop tunnels when you are done. Do not use Vite's development server or a public tunnel as production hosting.
+
 
 ## Confirmed v1 business rules
 - One business and one store.

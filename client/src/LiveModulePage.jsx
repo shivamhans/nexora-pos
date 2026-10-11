@@ -77,6 +77,7 @@ export default function LiveModulePage({ page, auth, items, setItems, notify, on
   const [categories, setCategories] = useState([]);
   const [suppliers, setSuppliers] = useState([]);
   const [customers, setCustomers] = useState([]);
+  const [customerSummary, setCustomerSummary] = useState(null);
   const [purchases, setPurchases] = useState([]);
   const [transactions, setTransactions] = useState([]);
   const [movements, setMovements] = useState([]);
@@ -136,7 +137,7 @@ export default function LiveModulePage({ page, auth, items, setItems, notify, on
           if (!cancelled) setSuppliers(data.suppliers || []);
         } else if (page === 'Customers') {
           const data = await get('/customers?includeInactive=' + (canManage ? '1' : '0'));
-          if (!cancelled) setCustomers(data.customers || []);
+          if (!cancelled) { setCustomers(data.customers || []); setCustomerSummary(data.summary || null); }
         } else if (page === 'Purchases') {
           const [purchaseData, supplierData, itemData] = await Promise.all([get('/purchases'), get('/suppliers'), get('/items')]);
           if (!cancelled) { setPurchases(purchaseData.purchases || []); setSuppliers(supplierData.suppliers || []); setItems(toUiItems(itemData.items || [])); }
@@ -188,7 +189,7 @@ export default function LiveModulePage({ page, auth, items, setItems, notify, on
     if (page === 'Items' || page === 'Inventory') return items.filter(row => [row.name, row.sku, row.category].some(match));
     if (page === 'Categories') return categories.filter(row => [row.name, row.description].some(match));
     if (page === 'Suppliers') return suppliers.filter(row => [row.name, row.contactName, row.email, row.phone].some(match));
-    if (page === 'Customers') return customers.filter(row => [row.name, row.email, row.phone].some(match));
+    if (page === 'Customers') return customers.filter(row => [row.name, row.email, row.phone, row.isBusiness ? 'business' : 'individual'].some(match));
     if (page === 'Purchases') return purchases.filter(row => [row.purchaseNo, row.supplier, row.status].some(match));
     if (page === 'Transactions') return transactions.filter(row => [row.receiptNo, row.customer, row.cashier, row.paymentMethod, row.method, row.status].some(match));
     if (page === 'Staff & Roles') return staff.filter(row => [row.name, row.email, row.role].some(match));
@@ -260,6 +261,13 @@ export default function LiveModulePage({ page, auth, items, setItems, notify, on
         isActive: Number(row.isActive) ? '1' : '0',
       });
       setModal('edit');
+    } else if (page === 'Customers') {
+      setForm({
+        id: Number(row.id), name: row.name || '', email: row.email || '',
+        phone: row.phone || '', notes: row.notes || '',
+        isBusiness: Number(row.isBusiness) ? '1' : '0',
+      });
+      setModal('edit');
     } else if (page === 'Purchases') {
       if (String(row.status).toUpperCase() !== 'ORDERED' || Number(row.quantityReceived || 0) > 0) {
         notify('Only an order with no received quantities can be edited.', 'warning');
@@ -300,7 +308,7 @@ export default function LiveModulePage({ page, auth, items, setItems, notify, on
       : page === 'Staff & Roles' ? { name: '', email: '', role: 'Cashier', password: '' }
       : page === 'Categories' ? { name: '', description: '' }
       : page === 'Suppliers' ? { name: '', contactName: '', email: '', phone: '', address: '', notes: '' }
-      : page === 'Customers' ? { name: '', email: '', phone: '', notes: '' }
+      : page === 'Customers' ? { name: '', email: '', phone: '', notes: '', isBusiness: '0' }
       : page === 'Purchases' ? { supplierId: '', purchaseDate: iso, notes: '', lines: [{ itemId: items[0]?.apiId || '', quantity: '1', unitCost: '0.00' }] }
       : {});
     setModal('create');
@@ -362,8 +370,8 @@ export default function LiveModulePage({ page, auth, items, setItems, notify, on
       payload = { name: form.name, contactName: form.contactName, email: form.email, phone: form.phone, address: form.address, notes: form.notes };
       path = '/suppliers';
     } else if (page === 'Customers') {
-      payload = { name: form.name, email: form.email, phone: form.phone, notes: form.notes };
-      path = '/customers';
+      payload = { name: form.name, email: form.email || null, phone: form.phone, notes: form.notes, isBusiness: form.isBusiness === '1' };
+      path = editing ? '/customers/' + encodeURIComponent(form.id) : '/customers';
     } else if (page === 'Staff & Roles') {
       payload = { name: form.name, email: form.email, role: form.role, password: form.password };
       path = '/staff';
@@ -382,7 +390,7 @@ export default function LiveModulePage({ page, auth, items, setItems, notify, on
       return;
     }
     const success = editing
-      ? (page === 'Items' ? 'Item details updated.' : page === 'Categories' ? 'Category details updated.' : 'Purchase order updated. Inventory was not changed.')
+      ? (page === 'Items' ? 'Item details updated.' : page === 'Categories' ? 'Category details updated.' : page === 'Customers' ? 'Customer details updated.' : 'Purchase order updated. Inventory was not changed.')
       : page === 'Purchases' ? 'Purchase order created. Stock will change only when quantities are received.'
       : ({ Items: 'Item created.', Categories: 'Category created.', Suppliers: 'Supplier created.', Customers: 'Customer created.', 'Staff & Roles': 'Staff account created.' }[page] || 'Record created.');
     await runRequest(path, method, payload, success);
@@ -680,7 +688,7 @@ export default function LiveModulePage({ page, auth, items, setItems, notify, on
   if (page === 'Items') { title = 'Items'; subtitle = 'Your live catalog, SKU list, prices, and opening stock.'; eyebrow = 'CATALOG & STOCK'; Icon = Package; addLabel = 'Add item'; }
   if (page === 'Categories') { subtitle = 'Organize products with database-backed categories.'; eyebrow = 'CATALOG & STOCK'; Icon = Tag; addLabel = 'Add category'; }
   if (page === 'Suppliers') { subtitle = 'Manage supplier contacts used for purchase orders.'; eyebrow = 'RELATIONSHIPS'; Icon = Truck; addLabel = 'Add supplier'; }
-  if (page === 'Customers') { subtitle = 'Customer records and purchase totals from saved transactions.'; eyebrow = 'RELATIONSHIPS'; Icon = Users; addLabel = 'Add customer'; }
+  if (page === 'Customers') { subtitle = 'Manage individual and business customers, lifetime sales, and Khata balances.'; eyebrow = 'RELATIONSHIPS'; Icon = Users; addLabel = 'Add customer'; }
   if (page === 'Purchases') { subtitle = 'Create orders, receive quantities, and update weighted average cost.'; eyebrow = 'CATALOG & STOCK'; Icon = PackagePlus; addLabel = 'New purchase'; }
   if (page === 'Transactions') { subtitle = 'A searchable history of database-backed sales and payments.'; eyebrow = 'WORKSPACE'; Icon = History; addLabel = 'Export CSV'; }
   if (page === 'Inventory') { subtitle = 'Stock adjustments, immutable movement history, and Admin reconciliation.'; eyebrow = 'CATALOG & STOCK'; Icon = Boxes; addLabel = 'Adjust stock'; }
@@ -700,7 +708,7 @@ export default function LiveModulePage({ page, auth, items, setItems, notify, on
     : page === 'Items' ? items.filter(row => row.stock > 0 && row.stock <= Number(row.reorderThreshold ?? 5)).length
     : page === 'Purchases' ? purchases.filter(row => ['ORDERED', 'PARTIALLY_RECEIVED'].includes(String(row.status).toUpperCase())).length
     : page === 'Transactions' ? transactions.filter(row => String(row.status).toUpperCase() === 'COMPLETED').length
-    : page === 'Customers' ? customers.reduce((sum, row) => sum + Number(row.totalSpent || 0), 0)
+    : page === 'Customers' ? Number(customerSummary?.totalCustomerSpend ?? customers.reduce((sum, row) => sum + Number(row.totalSpent || 0), 0))
     : page === 'Suppliers' ? suppliers.reduce((sum, row) => sum + Number(row.purchaseCount || 0), 0)
     : page === 'Categories' ? categories.reduce((sum, row) => sum + Number(row.itemCount || 0), 0)
     : page === 'Staff & Roles' ? staff.filter(row => Boolean(Number(row.isActive))).length
@@ -732,9 +740,10 @@ export default function LiveModulePage({ page, auth, items, setItems, notify, on
   return <>
     <div className="section-title"><div><div className="eyebrow">{eyebrow}</div><h1>{title}</h1><p>{subtitle}</p></div><div className="title-actions">{moduleActions}</div></div>
     {pageError && <div className="live-error"><AlertTriangle size={17}/><span>{pageError}</span><LiveButton icon={RefreshCw} onClick={refresh}>Retry</LiveButton></div>}
-    {!['Settings', 'Reports'].includes(page) && <div className="live-metrics">
+    {!['Settings', 'Reports'].includes(page) && <div className={'live-metrics' + (page === 'Customers' ? ' live-metrics-customers' : '')}>
       <div className="live-metric-card"><span className="live-metric-icon"><Icon size={18}/></span><div><small>{page === 'Transactions' ? 'Matching transactions' : page === 'Purchases' ? 'Purchase orders' : page === 'Inventory' ? 'Active SKUs' : 'Records'}</small><strong>{loading ? '—' : statA}</strong></div></div>
       <div className="live-metric-card"><span className="live-metric-icon metric-icon-amber"><AlertTriangle size={18}/></span><div><small>{statBLabel}</small><strong>{loading ? '—' : ['Customers', 'Returns & Refunds'].includes(page) ? cash(statB) : statB}</strong></div></div>
+      {page === 'Customers' && <div className="live-metric-card"><span className="live-metric-icon metric-icon-blue"><Store size={18}/></span><div><small>Business sales</small><strong>{loading ? '—' : cash(customerSummary?.businessSales || 0)}</strong></div></div>}
       <div className="live-metric-card"><span className="live-metric-icon metric-icon-green"><CircleCheck size={18}/></span><div><small>Data source</small><strong className="live-source-label">MySQL via API</strong></div></div>
     </div>}
 
@@ -848,7 +857,7 @@ export default function LiveModulePage({ page, auth, items, setItems, notify, on
         {page === 'Items' && currentRows.map(row=><tr key={row.id}>{columnVisible('Items','name') && <td>{row.imageUrl && <img className="item-table-thumb" src={row.imageUrl} alt="" loading="lazy"/>}<b>{row.name}</b><small className="live-cell-sub">{row.displayId || row.id}</small></td>}{columnVisible('Items','sku') && <td>{row.sku}</td>}{columnVisible('Items','category') && <td>{row.category}</td>}{columnVisible('Items','sellingPrice') && <td>{cash(row.price)}</td>}{columnVisible('Items','avgCost') && <td>{cash(row.cost)}</td>}{columnVisible('Items','onHand') && <td>{row.stock}</td>}{columnVisible('Items','status') && <td><StatusPill value={row.stock === 0 ? 'OUT_OF_STOCK' : row.stock <= Number(row.reorderThreshold ?? 5) ? 'LOW_STOCK' : 'IN_STOCK'}/></td>}<td>{canManage && <div className="table-action-group"><button className="icon-button small" onClick={()=>openEdit(row)} title="Edit item details" aria-label={"Edit " + row.name}><Pencil size={16}/></button><button className="icon-button small" onClick={()=>onNavigate('Inventory')} title="Adjust stock" aria-label={"Adjust stock for " + row.name}><Boxes size={16}/></button></div>}</td></tr>)}
         {page === 'Categories' && currentRows.map(row=><tr key={row.id}>{columnVisible('Categories','category') && <td><b>{row.name}</b></td>}{columnVisible('Categories','itemCount') && <td>{row.itemCount}</td>}{columnVisible('Categories','description') && <td>{row.description || '—'}</td>}{columnVisible('Categories','status') && <td><StatusPill value={Number(row.isActive) ? 'ACTIVE' : 'INACTIVE'}/></td>}<td>{canManage && <div className="table-action-group"><LiveButton onClick={()=>openEdit(row)} icon={Pencil}>Edit</LiveButton><LiveButton onClick={()=>toggleActive('categories',row)}>{Number(row.isActive) ? 'Deactivate' : 'Activate'}</LiveButton></div>}</td></tr>)}
         {page === 'Suppliers' && currentRows.map(row=><tr key={row.id}>{columnVisible('Suppliers','supplier') && <td><b>{row.name}</b><small className="live-cell-sub">{row.contactName || 'Supplier'}</small></td>}{columnVisible('Suppliers','contact') && <td>{row.contactName || '—'}</td>}{columnVisible('Suppliers','emailPhone') && <td>{row.email || '—'}<small className="live-cell-sub">{row.phone || ''}</small></td>}{columnVisible('Suppliers','purchaseOrders') && <td>{row.purchaseCount || 0}</td>}{columnVisible('Suppliers','status') && <td><StatusPill value={Number(row.isActive) ? 'ACTIVE' : 'INACTIVE'}/></td>}<td>{canManage && <LiveButton onClick={()=>toggleActive('suppliers',row)}>{Number(row.isActive) ? 'Deactivate' : 'Activate'}</LiveButton>}</td></tr>)}
-        {page === 'Customers' && currentRows.map(row=><tr key={row.id}>{columnVisible('Customers','customer') && <td><b>{row.name}</b><small className="live-cell-sub">{row.email || 'Customer'}</small></td>}{columnVisible('Customers','contact') && <td>{row.phone || '—'}</td>}{columnVisible('Customers','orders') && <td>{row.orderCount || 0}</td>}{columnVisible('Customers','totalSpent') && <td>{cash(row.totalSpent)}</td>}{columnVisible('Customers','outstandingBalance') && <td><b className={Number(row.outstandingBalance)>0?'khata-balance-due':'khata-balance-clear'}>{cash(row.outstandingBalance)}</b></td>}{columnVisible('Customers','lastPurchase') && <td>{asDate(row.lastPurchaseAt)}</td>}<td><div className="table-action-group">{columnVisible('Customers','outstandingBalance') && <LiveButton icon={History} onClick={()=>openCustomerLedger(row)} disabled={busy}>Khata history</LiveButton>}{canManage && columnVisible('Customers','outstandingBalance') && Number(row.outstandingBalance)>0 && <LiveButton icon={Wallet} onClick={()=>openCreditRepayment(row)} disabled={busy}>Record payment</LiveButton>}{canManage && <LiveButton onClick={()=>toggleActive('customers',row)}>{Number(row.isActive) ? 'Deactivate' : 'Activate'}</LiveButton>}</div></td></tr>)}
+        {page === 'Customers' && currentRows.map(row=><tr key={row.id}>{columnVisible('Customers','customer') && <td><div className="customer-primary-line"><b>{row.name}</b>{Boolean(row.isBusiness) && <span className="customer-business-tag">BUSINESS</span>}</div><small className="live-cell-sub">{row.email || 'Customer'}</small></td>}{columnVisible('Customers','contact') && <td>{row.phone || '—'}</td>}{columnVisible('Customers','orders') && <td>{row.orderCount || 0}</td>}{columnVisible('Customers','totalSpent') && <td>{cash(row.totalSpent)}</td>}{columnVisible('Customers','outstandingBalance') && <td><b className={Number(row.outstandingBalance)>0?'khata-balance-due':'khata-balance-clear'}>{cash(row.outstandingBalance)}</b></td>}{columnVisible('Customers','lastPurchase') && <td>{asDate(row.lastPurchaseAt)}</td>}<td><div className="table-action-group">{canManage && <LiveButton icon={Pencil} onClick={()=>openEdit(row)} disabled={busy}>Edit</LiveButton>}{columnVisible('Customers','outstandingBalance') && <LiveButton icon={History} onClick={()=>openCustomerLedger(row)} disabled={busy}>Khata history</LiveButton>}{canManage && columnVisible('Customers','outstandingBalance') && Number(row.outstandingBalance)>0 && <LiveButton icon={Wallet} onClick={()=>openCreditRepayment(row)} disabled={busy}>Record payment</LiveButton>}{canManage && <LiveButton onClick={()=>toggleActive('customers',row)}>{Number(row.isActive) ? 'Deactivate' : 'Activate'}</LiveButton>}</div></td></tr>)}
         {page === 'Purchases' && currentRows.map(row=><tr key={row.id}>{columnVisible('Purchases','purchaseNo') && <td><b>{row.purchaseNo}</b></td>}{columnVisible('Purchases','supplier') && <td>{row.supplier || 'No supplier'}</td>}{columnVisible('Purchases','purchaseDate') && <td>{asDate(row.purchaseDate)}</td>}{columnVisible('Purchases','lineCount') && <td>{row.lineCount || 0}</td>}{columnVisible('Purchases','totalAmount') && <td>{cash(row.totalAmount)}</td>}{columnVisible('Purchases','status') && <td><StatusPill value={row.status}/></td>}<td><div className="table-action-group">{canManage && String(row.status).toUpperCase()==='ORDERED' && Number(row.quantityReceived || 0)===0 && <><LiveButton icon={Pencil} onClick={()=>openEdit(row)} disabled={busy}>Edit</LiveButton><LiveButton variant="danger" icon={X} onClick={()=>cancelPurchase(row)} disabled={busy}>Cancel</LiveButton></>}{['ORDERED','PARTIALLY_RECEIVED'].includes(String(row.status).toUpperCase()) && canManage && <LiveButton variant="primary" onClick={()=>openReceive(row)} disabled={busy}>Receive</LiveButton>}</div></td></tr>)}
         {page === 'Transactions' && currentRows.map(row=><tr key={row.id}>{columnVisible('Transactions','receiptNo') && <td><b>{row.receiptNo}</b><small className="live-cell-sub">{row.lineCount || 0} item lines</small></td>}{columnVisible('Transactions','customer') && <td>{row.customer || 'Walk-in Customer'}</td>}{columnVisible('Transactions','cashier') && <td>{row.cashier || '—'}</td>}{columnVisible('Transactions','date') && <td>{asDate(row.completedAt)}</td>}{columnVisible('Transactions','payment') && <td>{prettyStatus(row.paymentMethod || row.method)}</td>}{columnVisible('Transactions','total') && <td>{cash(row.totalAmount)}</td>}{columnVisible('Transactions','status') && <td><StatusPill value={row.status}/></td>}<td><button className="icon-button small" onClick={()=>openTransaction(row)} aria-label="View transaction"><Eye size={16}/></button></td></tr>)}
       </tbody></table></div>}
@@ -930,7 +939,7 @@ export default function LiveModulePage({ page, auth, items, setItems, notify, on
       <div className="warning-callout"><ShieldCheck size={16}/><span>The password will be hashed by the server. The user should sign in with this new password; the existing session role is reloaded from the database.</span></div>
     </LiveModal>}
 
-    {(modal === 'create' || modal === 'edit') && <LiveModal title={modal === 'edit' ? (page === 'Items' ? 'Edit item details' : page === 'Categories' ? 'Edit category details' : 'Edit purchase order') : page === 'Items' ? 'Add item' : page === 'Categories' ? 'Add category' : page === 'Suppliers' ? 'Add supplier' : page === 'Customers' ? 'Add customer' : page === 'Staff & Roles' ? 'Invite staff member' : 'Create purchase order'} subtitle={modal === 'edit' ? 'Changes are validated by the API and saved to MySQL.' : "Required fields are validated by Nexora's API."} onClose={()=>setModal('')} onSubmit={submitCreate} busy={busy} submitLabel={modal === 'edit' ? 'Save changes' : page === 'Purchases' ? 'Create purchase order' : 'Save record'} wide={page === 'Purchases' || modal === 'edit'}>
+    {(modal === 'create' || modal === 'edit') && <LiveModal title={modal === 'edit' ? (page === 'Items' ? 'Edit item details' : page === 'Categories' ? 'Edit category details' : page === 'Customers' ? 'Edit customer details' : 'Edit purchase order') : page === 'Items' ? 'Add item' : page === 'Categories' ? 'Add category' : page === 'Suppliers' ? 'Add supplier' : page === 'Customers' ? 'Add customer' : page === 'Staff & Roles' ? 'Invite staff member' : 'Create purchase order'} subtitle={modal === 'edit' ? 'Changes are validated by the API and saved to MySQL.' : "Required fields are validated by Nexora's API."} onClose={()=>setModal('')} onSubmit={submitCreate} busy={busy} submitLabel={modal === 'edit' ? 'Save changes' : page === 'Purchases' ? 'Create purchase order' : 'Save record'} wide={page === 'Purchases' || modal === 'edit'}>
       {(page === 'Items' || page === 'Categories' || page === 'Suppliers' || page === 'Customers' || page === 'Staff & Roles') && <div className="live-form-grid">
         <Field label="Name *"><input className="form-input" required maxLength={page === 'Categories' ? 120 : 200} value={form.name || ''} onChange={e=>setValue('name',e.target.value)} placeholder={page === 'Items' ? 'e.g. Matcha Energy Blend' : page === 'Categories' ? 'e.g. Beverages' : page === 'Suppliers' ? 'Supplier business name' : page === 'Staff & Roles' ? 'Team member name' : 'Customer full name'}/></Field>
         {page === 'Items' && <>
@@ -949,7 +958,7 @@ export default function LiveModulePage({ page, auth, items, setItems, notify, on
         </>}
         {page === 'Categories' && <><Field label="Description"><textarea className="form-input textarea" maxLength={500} value={form.description || ''} onChange={e=>setValue('description',e.target.value)} placeholder="What belongs in this category?"/></Field>{modal === 'edit' && <Field label="Status"><select className="form-input" value={form.isActive ?? '1'} onChange={e=>setValue('isActive',e.target.value)}><option value="1">Active</option><option value="0">Inactive</option></select><small>Existing items keep their category history if a category is deactivated.</small></Field>}</>}
         {(page === 'Suppliers' || page === 'Customers' || page === 'Staff & Roles') && <>
-          <Field label="Email *"><input className="form-input" type="email" required value={form.email || ''} onChange={e=>setValue('email',e.target.value)} placeholder="name@example.com"/></Field>
+          <Field label={page === 'Customers' ? "Email (optional)" : "Email *"}><input className="form-input" type="email" required={page !== 'Customers'} value={form.email || ''} onChange={e=>setValue('email',e.target.value)} placeholder="name@example.com"/></Field>
           {page === 'Staff & Roles' ? <>
             <Field label="Temporary password *"><input className="form-input" type="password" minLength={12} required autoComplete="new-password" value={form.password || ''} onChange={e=>setValue('password',e.target.value)} placeholder="At least 12 characters"/><small>Passwords are hashed before storage. Share the temporary password securely.</small></Field>
             <Field label="Role"><select className="form-input" value={form.role || 'Cashier'} onChange={e=>setValue('role',e.target.value)}><option>Cashier</option><option>Manager</option><option>Admin</option></select></Field>
@@ -958,6 +967,7 @@ export default function LiveModulePage({ page, auth, items, setItems, notify, on
             <Field label="Contact person"><input className="form-input" value={form.contactName || ''} onChange={e=>setValue('contactName',e.target.value)}/></Field>
             <Field label="Address"><input className="form-input" value={form.address || ''} onChange={e=>setValue('address',e.target.value)}/></Field>
           </>}
+          {page === 'Customers' && canManage && <Field label="Customer type"><select className="form-input" value={form.isBusiness || '0'} onChange={e=>setValue('isBusiness',e.target.value)}><option value="0">Individual customer</option><option value="1">Business customer</option></select><small>Completed sales linked to business customers are included in the Business sales statistic.</small></Field>}
           {(page === 'Suppliers' || page === 'Customers') && <Field label="Notes"><textarea className="form-input textarea" value={form.notes || ''} onChange={e=>setValue('notes',e.target.value)}/></Field>}
         </>}
       </div>}

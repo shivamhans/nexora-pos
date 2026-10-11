@@ -44,13 +44,22 @@ router.get('/summary', async (req, res, next) => {
       JOIN sale_items si ON si.id = ri.sale_item_id
       WHERE r.status = 'COMPLETED' AND DATE(r.completed_at) BETWEEN ? AND ?
     `, [from, to]);
+    // Collections include only real payment records. Khata sales are receivables, not money collected.
     const [paymentRows] = await pool.execute(`
-      SELECT CASE WHEN s.payment_status = 'CREDIT' THEN 'CREDIT' ELSE p.method END AS method,
-        COUNT(*) AS paymentCount, COALESCE(SUM(s.total_amount),0) AS amount
-      FROM sales s LEFT JOIN payments p ON p.sale_id = s.id
-      WHERE s.status = 'COMPLETED' AND DATE(s.completed_at) BETWEEN ? AND ?
-      GROUP BY CASE WHEN s.payment_status = 'CREDIT' THEN 'CREDIT' ELSE p.method END
+      SELECT p.method, COUNT(*) AS paymentCount,
+        COALESCE(SUM(p.amount_received - p.change_due), 0) AS amount
+      FROM payments p
+      JOIN sales s ON s.id = p.sale_id
+      WHERE s.status = 'COMPLETED' AND s.payment_status = 'PAID'
+        AND DATE(s.completed_at) BETWEEN ? AND ?
+      GROUP BY p.method
       ORDER BY amount DESC
+    `, [from, to]);
+    const [creditSalesRows] = await pool.execute(`
+      SELECT COUNT(*) AS creditSalesCount, COALESCE(SUM(total_amount), 0) AS creditSalesTotal
+      FROM sales
+      WHERE status = 'COMPLETED' AND payment_status = 'CREDIT'
+        AND DATE(completed_at) BETWEEN ? AND ?
     `, [from, to]);
     const [inventoryRows] = await pool.execute(`
       SELECT COUNT(*) AS itemCount,
@@ -62,7 +71,12 @@ router.get('/summary', async (req, res, next) => {
     `);
     const [topSellingRows] = await pool.execute(`
       SELECT si.item_id AS itemId, si.item_name_snapshot AS name, si.sku_snapshot AS sku,
-        SUM(si.quantity) AS unitsSold, COALESCE(SUM(si.quantity * si.unit_price_actual), 0) AS salesAmount
+        SUM(si.quantity) AS unitsSold,
+        COALESCE(ROUND(
+          SUM(si.quantity * si.unit_price_actual)
+          - SUM(CASE WHEN s.subtotal > 0
+              THEN s.discount_total * (si.quantity * si.unit_price_actual) / s.subtotal
+              ELSE 0 END), 2), 0) AS salesAmount
       FROM sale_items si JOIN sales s ON s.id = si.sale_id
       WHERE s.status = 'COMPLETED' AND DATE(s.completed_at) BETWEEN ? AND ?
       GROUP BY si.item_id, si.item_name_snapshot, si.sku_snapshot
@@ -75,6 +89,10 @@ router.get('/summary', async (req, res, next) => {
         FROM customer_credit_ledger GROUP BY customer_id
       ) balances WHERE balance > 0
     `);
+    const mayViewKhata = req.user.role === 'Admin' || (
+      req.user.permissions?.modules?.includes('Customers') &&
+      req.user.permissions?.columns?.Customers?.includes('outstandingBalance')
+    );
     const [queueRows] = await pool.execute("SELECT COUNT(*) AS openReconciliations FROM negative_stock_reconciliation WHERE status = 'OPEN'");
     const [dailySales] = await pool.execute(`
       SELECT DATE(completed_at) AS day, COALESCE(SUM(total_amount),0) AS amount
@@ -124,8 +142,10 @@ router.get('/summary', async (req, res, next) => {
         outOfStockCount: Number(inventory.outOfStockCount || 0),
         negativeStockCount: Number(inventory.negativeStockCount || 0),
         openReconciliations: Number(queueRows[0].openReconciliations || 0),
-        khataOutstanding: money2(khataRows[0]?.outstandingTotal || 0),
-        customersOwing: Number(khataRows[0]?.customersOwing || 0),
+        khataOutstanding: mayViewKhata ? money2(khataRows[0]?.outstandingTotal || 0) : null,
+        customersOwing: mayViewKhata ? Number(khataRows[0]?.customersOwing || 0) : null,
+        creditSalesTotal: mayViewKhata ? money2(creditSalesRows[0]?.creditSalesTotal || 0) : null,
+        creditSalesCount: mayViewKhata ? Number(creditSalesRows[0]?.creditSalesCount || 0) : null,
       },
       payments: paymentRows.map(row => ({ method: row.method, paymentCount: Number(row.paymentCount), amount: money2(row.amount) })),
       daily,

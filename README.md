@@ -48,11 +48,15 @@ mysql -u root -p < database/schema.sql
 
 Alternatively, execute `database/schema.sql` in MySQL Workbench. It targets `nexora_pos_cg`. You can re-run it after updates: the `CREATE TABLE IF NOT EXISTS` statements preserve existing tables/rows and create the new `negative_stock_reconciliation` and `return_payments` tables if missing. Back up data before applying schema changes to any database with valuable records.
 
-### 1a. Apply the Phase 4/5 upgrade migration
-If your browser displays errors like `Table 'nexora_pos_cg.negative_stock_reconciliation' doesn't exist` or `Table 'nexora_pos_cg.return_payments' doesn't exist`, your existing database predates the newer tables. In MySQL Workbench, open `database/phase4-migration.sql` from this branch and execute it. It safely creates `negative_stock_reconciliation` and `return_payments` if missing, adds `items.image_data` and `users.permissions_json` if missing, and does not drop existing records. Run the whole script after downloading this update, then restart the API. The migration is idempotent for these additions.
+### 1a. Back up and apply the upgrade migrations in order
+Before changing an existing store database, make a backup of `nexora_pos_cg` in MySQL Workbench (Server → Data Export), and confirm the export completed. **Do not drop or recreate the database.**
+
+If this installation has not already received the Phase 4 upgrade, open `database/phase4-migration.sql` from this branch in MySQL Workbench and execute the whole script first. It adds `items.image_data` and `users.permissions_json` when missing, and creates `negative_stock_reconciliation` and `return_payments` when missing. It does not drop existing business records and is repeatable for those additions.
 
 ### 1b. Apply the Phase 5 Khata and store-logo migration
-After updating to this feature branch, open `database/phase5-khata-branding-migration.sql` in MySQL Workbench and execute the whole script against `nexora_pos_cg`. It adds `business_settings.logo_data`, enables the `CREDIT` sale payment status, and creates the `customer_credit_ledger` table without dropping existing rows. Run it once before restarting the API; the script is safe to re-run.
+Next, open `database/phase5-khata-branding-migration.sql` from this branch in MySQL Workbench and execute the whole script against `nexora_pos_cg`. It adds `business_settings.logo_data`, enables the `CREDIT` sales status, and creates `customer_credit_ledger` without dropping existing sales, customers, items, payments, or stock records. The migration is designed to be re-run. Review any SQL error rather than skipping failed statements.
+
+After both applicable migrations complete successfully, restart the Express API. Then check `http://localhost:4001/api/health` and confirm it reports `"database":"connected"`.
 
 ### 2. Configure and start the API
 In the `server` folder, copy `server/.env.example` to `server/.env` (PowerShell from that folder: `Copy-Item .env.example .env`).

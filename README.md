@@ -2,7 +2,7 @@
 
 Nexora POS is a desktop-first point-of-sale and inventory system built with React, Vite, Tailwind CSS, Express, and local MySQL.
 
-## Current milestone: Phase 5 — final workflow completion and stabilization
+## Current milestone: Phase 6 — employee directory, payroll and expense tracking
 
 The draft feature branch now includes:
 - Premium sign-in, role-aware navigation, same-Wi-Fi LAN support, and a responsive light/dark workspace.
@@ -20,7 +20,9 @@ The draft feature branch now includes:
 - **WhatsApp receipts:** POS lets the cashier choose a saved customer (autofilling their phone) or enter a WhatsApp number for a walk-in. The branded PNG uses the uploaded store logo and saved business name, plus receipt number/date, customer, line items, discount and total. Supported phones can share the image via the native share sheet; otherwise the PNG is downloaded and attached manually in the customer's WhatsApp chat. A WhatsApp click-to-chat URL cannot attach a local image automatically. Ten-digit local numbers default to India (+91); enter a full country code for other countries.
 - Supplier/customer directories, purchase orders and receiving with weighted-average-cost updates.
 - Searchable transaction history and partial returns with quantity/refund checks, optional restocking, manual settlement records, stock movements and audit history.
-- Admin-only staff management: invite staff, assign roles, activate/deactivate accounts, and reset passwords. Protected APIs reload current account role/status.
+- Admin-only staff-account management: invite app users, assign app roles, activate/deactivate accounts, and reset passwords. Protected APIs reload current account role/status.
+- **Employee directory and payroll (Phase 6):** a separate Admin-only employee register supports compressed profile photos, phone, joining date, job title, monthly salary and recurring salary due day. Optional Aadhaar is encrypted using AES-256-GCM before storage; the API shows only the final four digits. Monthly payroll is generated once as a salary snapshot and can be marked paid/unpaid with audit history.
+- **Employee expenses:** record company-paid expenses with their payment method or schedule a salary deduction for the next calendar month's payroll. Deductions are applied in order and unused amounts carry forward if they exceed that month's salary. A deduction cannot be added to a month whose payroll has already been generated; generate payroll after recording that month's planned deductions.
 - Persisted business name, currency, locale, timezone and receipt footer; the sidebar uses the saved business name and stock alerts use each item's configured threshold.
 - Database-backed reports and dashboard. Gross profit is withheld when provisional costs affect a period; net profit is not reported without expense tracking.
 - GitHub Actions checks the frontend production build and backend JavaScript syntax.
@@ -56,7 +58,18 @@ If this installation has not already received the Phase 4 upgrade, open `databas
 ### 1b. Apply the Phase 5 Khata and store-logo migration
 Next, open `database/phase5-khata-branding-migration.sql` from this branch in MySQL Workbench and execute the whole script against `nexora_pos_cg`. It adds `business_settings.logo_data`, enables the `CREDIT` sales status, and creates `customer_credit_ledger` without dropping existing sales, customers, items, payments, or stock records. The migration is designed to be re-run. Review any SQL error rather than skipping failed statements.
 
-After both applicable migrations complete successfully, restart the Express API. Then check `http://localhost:4001/api/health` and confirm it reports `"database":"connected"`.
+### 1c. Apply the Phase 6 employee/payroll migration
+Open `database/phase6-employees-migration.sql` from this branch in MySQL Workbench and execute it against `nexora_pos_cg`. It creates the employee directory, expense register, monthly payroll snapshots and deduction-allocation tables. It does not drop or rewrite existing POS, customer, item, payment, or stock records. Back up the database first, and read any SQL error rather than ignoring it.
+
+To save an Aadhaar number, add a private 32-byte encryption key to `server/.env`. Generate it in PowerShell from the `server` folder with:
+
+```powershell
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+```
+
+Copy the output to `EMPLOYEE_PII_ENCRYPTION_KEY=` in `server/.env`, then restart the API. Never commit or share this key; back it up somewhere secure. **If the key is lost, saved Aadhaar values cannot be decrypted.** Aadhaar remains optional—employee profiles and payroll work without it.
+
+After all applicable migrations complete successfully, restart the Express API. Then check `http://localhost:4001/api/health` and confirm it reports `"database":"connected"`.
 
 ### 2. Configure and start the API
 In the `server` folder, copy `server/.env.example` to `server/.env` (PowerShell from that folder: `Copy-Item .env.example .env`).
@@ -171,7 +184,7 @@ Run the frontend build and backend syntax CI, then test the workflows against a 
 - Never commit `.env`, passwords, tokens, keys, or real customer/business exports.
 - Use a strong unique JWT secret and application passwords.
 - The UI is not the security boundary; the server enforces roles and account status.
-- The feature branch is still a draft and should not be used for live sales until end-to-end verification is complete.
+- The feature branch is still a draft and should not be used for live sales until end-to-end verification is complete. Employee/payroll workflows also require testing against a disposable MySQL database, including salary-deduction carry-forward and duplicate payroll generation.
 
 
 ## Return lookup note

@@ -73,7 +73,7 @@ function BlankState({ title, text, onAdd, addLabel }) {
   return <div className="empty-state live-empty"><div className="empty-icon"><ClipboardList size={21}/></div><h3>{title}</h3><p>{text}</p>{onAdd && <LiveButton variant="primary" icon={Plus} onClick={onAdd}>{addLabel || 'Add first record'}</LiveButton>}</div>;
 }
 
-export default function LiveModulePage({ page, auth, items, setItems, notify, onUnauthorized, onNavigate, onCurrencyChange, onBusinessNameChange, onBusinessLogoChange }) {
+export default function LiveModulePage({ page, auth, items, setItems, notify, onUnauthorized, onNavigate, onCurrencyChange, businessName, businessLogo, onBusinessNameChange, onBusinessLogoChange }) {
   const [categories, setCategories] = useState([]);
   const [suppliers, setSuppliers] = useState([]);
   const [customers, setCustomers] = useState([]);
@@ -575,8 +575,22 @@ export default function LiveModulePage({ page, auth, items, setItems, notify, on
       context.drawImage(bitmap, 0, 0, canvas.width, canvas.height); bitmap.close?.();
       const logoData = canvas.toDataURL('image/jpeg', 0.78);
       if (logoData.length > 650000) throw new Error('The compressed logo is still too large. Choose a smaller image.');
+      const previousLogo = settings?.logoData || '';
       setSettings(old => ({ ...old, logoData }));
-      notify('Logo prepared. Save settings to apply it to receipts.', 'success');
+      setBusy(true);
+      try {
+        // Save the branding asset immediately so all receipt surfaces receive the
+        // authoritative logo even if the user navigates away before saving other settings.
+        const result = await apiRequest('/settings', { method: 'PATCH', token, body: { logoData } });
+        const savedLogo = result.settings?.logoData || logoData;
+        setSettings(old => ({ ...old, logoData: savedLogo, updatedAt: result.settings?.updatedAt || old?.updatedAt }));
+        if (onBusinessLogoChange) onBusinessLogoChange(savedLogo);
+        notify('Logo saved and applied to receipt branding.', 'success');
+      } catch (error) {
+        setSettings(old => ({ ...old, logoData: previousLogo || null }));
+        notify(error.message || 'Could not save the store logo. Your previous logo remains active.', 'warning');
+        if (error.status === 401 && onUnauthorized) onUnauthorized();
+      } finally { setBusy(false); }
     } catch (error) { notify(error.message || 'Could not prepare the logo image.', 'warning'); }
   };
   const saveSettings = async event => {
@@ -1012,7 +1026,7 @@ export default function LiveModulePage({ page, auth, items, setItems, notify, on
 
     {modal === 'transaction' && transactionDetail && <div className="modal-backdrop" onClick={()=>setModal('')}><div className="modal live-modal live-modal-wide" onClick={e=>e.stopPropagation()}><div className="modal-head"><div><div className="eyebrow">SAVED TRANSACTION</div><h2>{transactionDetail.receiptNo}</h2><p>{asDate(transactionDetail.completedAt)} · {transactionDetail.customer || 'Walk-in Customer'} · {transactionDetail.cashier || 'Unknown cashier'}</p></div><button className="icon-button" onClick={()=>setModal('')}><X size={18}/></button></div>
       <div className="print-only printable-receipt transaction-print-receipt">
-        <div className="print-receipt-brand"><strong>NEXORA</strong><small>POINT OF SALE · SALES RECEIPT</small></div>
+        <div className="print-receipt-brand">{businessLogo && <img className="print-receipt-logo" src={businessLogo} alt={businessName || 'Store logo'}/>}<strong>{businessName || 'NEXORA'}</strong><small>POINT OF SALE · SALES RECEIPT</small></div>
         <div className="print-receipt-meta">
           <div><span>Receipt</span><b>{transactionDetail.receiptNo}</b></div>
           <div><span>Date</span><b>{asDate(transactionDetail.completedAt)}</b></div>

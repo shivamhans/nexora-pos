@@ -36,6 +36,7 @@ router.get('/summary', requireModuleAccessFor(['Dashboard', 'Customers']), async
 router.get('/customers/:id/ledger', requireModuleAccessFor(['Customers', 'Point of Sale']), async (req, res, next) => {
   const customerId = Number(req.params.id);
   if (!Number.isSafeInteger(customerId) || customerId < 1) return res.status(400).json({ error: 'Invalid customer ID.' });
+  if (req.user.role !== 'Admin' && !req.user.permissions?.columns?.Customers?.includes('outstandingBalance')) return res.status(403).json({ error: 'Your account is not allowed to view individual Khata ledgers.' });
   try {
     const [customerRows] = await pool.execute('SELECT id, name, phone FROM customers WHERE id = ?', [customerId]);
     if (!customerRows[0]) return res.status(404).json({ error: 'Customer not found.' });
@@ -48,8 +49,9 @@ router.get('/customers/:id/ledger', requireModuleAccessFor(['Customers', 'Point 
   } catch (error) { next(error); }
 });
 
-router.post('/repayments', requireModuleAccessFor(['Dashboard', 'Customers', 'Point of Sale'], ['Customers', 'Point of Sale']), async (req, res, next) => {
+router.post('/repayments', requireModuleAccessFor(['Customers'], ['Customers']), async (req, res, next) => {
   const customerId = Number(req.body?.customerId);
+  if (req.user.role !== 'Admin' && !req.user.permissions?.columns?.Customers?.includes('outstandingBalance')) return res.status(403).json({ error: 'Your account is not allowed to record Khata repayments.' });
   const amount = Number(req.body?.amount);
   const method = String(req.body?.method || '');
   const referenceNo = req.body?.referenceNo == null ? null : String(req.body.referenceNo).trim() || null;

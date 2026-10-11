@@ -252,8 +252,16 @@ async function createReceiptPng(sale, businessName, money, logoData = '') {
       ctx.fillStyle = head; ctx.fillRect(cardX, cardY, cardW, 255); ctx.globalAlpha = .12; ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2;
       ctx.beginPath(); ctx.arc(cardX + 830, cardY + 80, 94, 0, Math.PI * 2); ctx.stroke(); ctx.beginPath(); ctx.arc(cardX + 830, cardY + 80, 132, 0, Math.PI * 2); ctx.stroke(); ctx.globalAlpha = 1;
       if (logoImage) {
-        ctx.save(); roundedRect(ctx, cardX + 42, cardY + 36, 66, 66, 18); ctx.clip();
-        ctx.drawImage(logoImage, cardX + 42, cardY + 36, 66, 66); ctx.restore();
+        ctx.save();
+        roundedRect(ctx, cardX + 42, cardY + 36, 66, 66, 18); ctx.clip();
+        ctx.fillStyle = '#ffffff'; ctx.fillRect(cardX + 42, cardY + 36, 66, 66);
+        const sourceWidth = logoImage.naturalWidth || logoImage.width || 1;
+        const sourceHeight = logoImage.naturalHeight || logoImage.height || 1;
+        const logoScale = Math.min(62 / sourceWidth, 62 / sourceHeight);
+        const logoWidth = sourceWidth * logoScale;
+        const logoHeight = sourceHeight * logoScale;
+        ctx.drawImage(logoImage, cardX + 44 + (62 - logoWidth) / 2, cardY + 38 + (62 - logoHeight) / 2, logoWidth, logoHeight);
+        ctx.restore();
       } else {
         roundedRect(ctx, cardX + 42, cardY + 36, 66, 66, 18); ctx.fillStyle = 'rgba(255,255,255,.16)'; ctx.fill(); ctx.fillStyle = '#ffffff';
         [[0,0],[1,0],[0,1],[1,1]].forEach(([col,row]) => { roundedRect(ctx, cardX + 58 + col * 21, cardY + 52 + row * 21, 13, 13, 4); ctx.fill(); });

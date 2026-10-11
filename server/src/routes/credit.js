@@ -6,6 +6,10 @@ import { requireModuleAccessFor } from '../middleware/permissions.js';
 const router = Router();
 router.use(requireAuth);
 const money2 = value => Number(Number(value || 0).toFixed(2));
+const canViewKhata = user => user?.role === 'Admin' || (
+  user?.permissions?.modules?.includes('Customers') &&
+  user?.permissions?.columns?.Customers?.includes('outstandingBalance')
+);
 
 async function getCustomerBalance(connection, customerId, lockCustomer = false) {
   if (lockCustomer) {
@@ -20,7 +24,8 @@ async function getCustomerBalance(connection, customerId, lockCustomer = false) 
   return { balance: money2(rows[0]?.balance || 0) };
 }
 
-router.get('/summary', requireModuleAccessFor(['Dashboard', 'Customers']), async (_req, res, next) => {
+router.get('/summary', requireModuleAccessFor(['Dashboard', 'Customers']), async (req, res, next) => {
+  if (!canViewKhata(req.user)) return res.status(403).json({ error: 'Your account is not allowed to view Khata balances.' });
   try {
     const [rows] = await pool.execute(`
       SELECT COALESCE(SUM(balance), 0) AS outstandingTotal, COUNT(*) AS customersOwing
@@ -36,7 +41,7 @@ router.get('/summary', requireModuleAccessFor(['Dashboard', 'Customers']), async
 router.get('/customers/:id/ledger', requireModuleAccessFor(['Customers', 'Point of Sale']), async (req, res, next) => {
   const customerId = Number(req.params.id);
   if (!Number.isSafeInteger(customerId) || customerId < 1) return res.status(400).json({ error: 'Invalid customer ID.' });
-  if (req.user.role !== 'Admin' && !req.user.permissions?.columns?.Customers?.includes('outstandingBalance')) return res.status(403).json({ error: 'Your account is not allowed to view individual Khata ledgers.' });
+  if (!canViewKhata(req.user)) return res.status(403).json({ error: 'Your account is not allowed to view individual Khata ledgers.' });
   try {
     const [customerRows] = await pool.execute('SELECT id, name, phone FROM customers WHERE id = ?', [customerId]);
     if (!customerRows[0]) return res.status(404).json({ error: 'Customer not found.' });
@@ -51,7 +56,7 @@ router.get('/customers/:id/ledger', requireModuleAccessFor(['Customers', 'Point 
 
 router.post('/repayments', requireModuleAccessFor(['Customers'], ['Customers']), async (req, res, next) => {
   const customerId = Number(req.body?.customerId);
-  if (req.user.role !== 'Admin' && !req.user.permissions?.columns?.Customers?.includes('outstandingBalance')) return res.status(403).json({ error: 'Your account is not allowed to record Khata repayments.' });
+  if (!canViewKhata(req.user)) return res.status(403).json({ error: 'Your account is not allowed to record Khata repayments.' });
   const amount = Number(req.body?.amount);
   const method = String(req.body?.method || '');
   const referenceNo = req.body?.referenceNo == null ? null : String(req.body.referenceNo).trim() || null;
@@ -69,6 +74,10 @@ router.post('/repayments', requireModuleAccessFor(['Customers'], ['Customers']),
     if (current.error) { await connection.rollback(); return res.status(404).json({ error: current.error }); }
     if (current.balance <= 0) { await connection.rollback(); return res.status(409).json({ error: 'This customer has no outstanding Khata balance.' }); }
     const roundedAmount = money2(amount);
+    if (roundedAmount <= 0) {
+      await connection.rollback();
+      return res.status(400).json({ error: 'Repayment amount must be at least 0.01.' });
+    }
     if (roundedAmount > current.balance) { await connection.rollback(); return res.status(400).json({ error: `Repayment cannot exceed the outstanding balance of ${current.balance.toFixed(2)}.` }); }
     const [result] = await connection.execute(`
       INSERT INTO customer_credit_ledger (customer_id, sale_id, entry_type, amount, method, reference_no, notes, created_by)

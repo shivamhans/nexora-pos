@@ -502,6 +502,27 @@ export default function LiveModulePage({ page, auth, items, setItems, notify, on
     if (saved) setForm({});
   };
 
+  const openCreditRepayment = row => {
+    const balance = Number(row?.outstandingBalance || 0);
+    if (!row || balance <= 0) return;
+    setForm({ customerId: Number(row.id), customerName: row.name, outstandingBalance: balance, amount: balance.toFixed(2), method: 'Cash', referenceNo: '', notes: '' });
+    setModal('credit-payment');
+  };
+
+  const submitCreditRepayment = async event => {
+    event.preventDefault();
+    const amount = Number(form.amount);
+    if (!Number.isFinite(amount) || amount <= 0) { notify('Enter a positive repayment amount.', 'warning'); return; }
+    if (amount > Number(form.outstandingBalance || 0)) { notify('Repayment cannot exceed the displayed Khata balance.', 'warning'); return; }
+    await runRequest('/credit/repayments', 'POST', {
+      customerId: Number(form.customerId),
+      amount,
+      method: form.method,
+      referenceNo: form.referenceNo || null,
+      notes: form.notes || null,
+    }, 'Khata repayment recorded. The customer balance has been refreshed.');
+  };
+
   const changeStaffRole = async (row, nextRole) => {
     if (row.role === nextRole) return;
     await runRequest('/staff/' + row.id, 'PATCH', { role: nextRole }, 'Role updated. Existing API requests now use the current server role.');
@@ -807,14 +828,14 @@ export default function LiveModulePage({ page, auth, items, setItems, notify, on
         {page === 'Items' && <>{columnVisible('Items','name') && <th>ITEM</th>}{columnVisible('Items','sku') && <th>SKU</th>}{columnVisible('Items','category') && <th>CATEGORY</th>}{columnVisible('Items','sellingPrice') && <th>SELLING PRICE</th>}{columnVisible('Items','avgCost') && <th>AVG COST</th>}{columnVisible('Items','onHand') && <th>ON HAND</th>}{columnVisible('Items','status') && <th>STATUS</th>}<th></th></>}
         {page === 'Categories' && <>{columnVisible('Categories','category') && <th>CATEGORY</th>}{columnVisible('Categories','itemCount') && <th>ITEM COUNT</th>}{columnVisible('Categories','description') && <th>DESCRIPTION</th>}{columnVisible('Categories','status') && <th>STATUS</th>}<th></th></>}
         {page === 'Suppliers' && <>{columnVisible('Suppliers','supplier') && <th>SUPPLIER</th>}{columnVisible('Suppliers','contact') && <th>CONTACT</th>}{columnVisible('Suppliers','emailPhone') && <th>EMAIL / PHONE</th>}{columnVisible('Suppliers','purchaseOrders') && <th>PURCHASE ORDERS</th>}{columnVisible('Suppliers','status') && <th>STATUS</th>}<th></th></>}
-        {page === 'Customers' && <>{columnVisible('Customers','customer') && <th>CUSTOMER</th>}{columnVisible('Customers','contact') && <th>CONTACT</th>}{columnVisible('Customers','orders') && <th>ORDERS</th>}{columnVisible('Customers','totalSpent') && <th>TOTAL SPENT</th>}{columnVisible('Customers','lastPurchase') && <th>LAST PURCHASE</th>}<th></th></>}
+        {page === 'Customers' && <>{columnVisible('Customers','customer') && <th>CUSTOMER</th>}{columnVisible('Customers','contact') && <th>CONTACT</th>}{columnVisible('Customers','orders') && <th>ORDERS</th>}{columnVisible('Customers','totalSpent') && <th>TOTAL SPENT</th>}{columnVisible('Customers','outstandingBalance') && <th>KHATA OWED</th>}{columnVisible('Customers','lastPurchase') && <th>LAST PURCHASE</th><th></th></>}
         {page === 'Purchases' && <>{columnVisible('Purchases','purchaseNo') && <th>PURCHASE</th>}{columnVisible('Purchases','supplier') && <th>SUPPLIER</th>}{columnVisible('Purchases','purchaseDate') && <th>ORDER DATE</th>}{columnVisible('Purchases','lineCount') && <th>LINES</th>}{columnVisible('Purchases','totalAmount') && <th>TOTAL</th>}{columnVisible('Purchases','status') && <th>STATUS</th>}<th></th></>}
         {page === 'Transactions' && <>{columnVisible('Transactions','receiptNo') && <th>RECEIPT</th>}{columnVisible('Transactions','customer') && <th>CUSTOMER</th>}{columnVisible('Transactions','cashier') && <th>CASHIER</th>}{columnVisible('Transactions','date') && <th>DATE</th>}{columnVisible('Transactions','payment') && <th>PAYMENT</th>}{columnVisible('Transactions','total') && <th>TOTAL</th>}{columnVisible('Transactions','status') && <th>STATUS</th>}<th></th></>}
       </tr></thead><tbody>
         {page === 'Items' && currentRows.map(row=><tr key={row.id}>{columnVisible('Items','name') && <td>{row.imageUrl && <img className="item-table-thumb" src={row.imageUrl} alt="" loading="lazy"/>}<b>{row.name}</b><small className="live-cell-sub">{row.displayId || row.id}</small></td>}{columnVisible('Items','sku') && <td>{row.sku}</td>}{columnVisible('Items','category') && <td>{row.category}</td>}{columnVisible('Items','sellingPrice') && <td>{cash(row.price)}</td>}{columnVisible('Items','avgCost') && <td>{cash(row.cost)}</td>}{columnVisible('Items','onHand') && <td>{row.stock}</td>}{columnVisible('Items','status') && <td><StatusPill value={row.stock === 0 ? 'OUT_OF_STOCK' : row.stock <= Number(row.reorderThreshold ?? 5) ? 'LOW_STOCK' : 'IN_STOCK'}/></td>}<td>{canManage && <div className="table-action-group"><button className="icon-button small" onClick={()=>openEdit(row)} title="Edit item details" aria-label={"Edit " + row.name}><Pencil size={16}/></button><button className="icon-button small" onClick={()=>onNavigate('Inventory')} title="Adjust stock" aria-label={"Adjust stock for " + row.name}><Boxes size={16}/></button></div>}</td></tr>)}
         {page === 'Categories' && currentRows.map(row=><tr key={row.id}>{columnVisible('Categories','category') && <td><b>{row.name}</b></td>}{columnVisible('Categories','itemCount') && <td>{row.itemCount}</td>}{columnVisible('Categories','description') && <td>{row.description || '—'}</td>}{columnVisible('Categories','status') && <td><StatusPill value={Number(row.isActive) ? 'ACTIVE' : 'INACTIVE'}/></td>}<td>{canManage && <div className="table-action-group"><LiveButton onClick={()=>openEdit(row)} icon={Pencil}>Edit</LiveButton><LiveButton onClick={()=>toggleActive('categories',row)}>{Number(row.isActive) ? 'Deactivate' : 'Activate'}</LiveButton></div>}</td></tr>)}
         {page === 'Suppliers' && currentRows.map(row=><tr key={row.id}>{columnVisible('Suppliers','supplier') && <td><b>{row.name}</b><small className="live-cell-sub">{row.contactName || 'Supplier'}</small></td>}{columnVisible('Suppliers','contact') && <td>{row.contactName || '—'}</td>}{columnVisible('Suppliers','emailPhone') && <td>{row.email || '—'}<small className="live-cell-sub">{row.phone || ''}</small></td>}{columnVisible('Suppliers','purchaseOrders') && <td>{row.purchaseCount || 0}</td>}{columnVisible('Suppliers','status') && <td><StatusPill value={Number(row.isActive) ? 'ACTIVE' : 'INACTIVE'}/></td>}<td>{canManage && <LiveButton onClick={()=>toggleActive('suppliers',row)}>{Number(row.isActive) ? 'Deactivate' : 'Activate'}</LiveButton>}</td></tr>)}
-        {page === 'Customers' && currentRows.map(row=><tr key={row.id}>{columnVisible('Customers','customer') && <td><b>{row.name}</b><small className="live-cell-sub">{row.email || 'Customer'}</small></td>}{columnVisible('Customers','contact') && <td>{row.phone || '—'}</td>}{columnVisible('Customers','orders') && <td>{row.orderCount || 0}</td>}{columnVisible('Customers','totalSpent') && <td>{cash(row.totalSpent)}</td>}{columnVisible('Customers','lastPurchase') && <td>{asDate(row.lastPurchaseAt)}</td>}<td>{canManage && <LiveButton onClick={()=>toggleActive('customers',row)}>{Number(row.isActive) ? 'Deactivate' : 'Activate'}</LiveButton>}</td></tr>)}
+        {page === 'Customers' && currentRows.map(row=><tr key={row.id}>{columnVisible('Customers','customer') && <td><b>{row.name}</b><small className="live-cell-sub">{row.email || 'Customer'}</small></td>}{columnVisible('Customers','contact') && <td>{row.phone || '—'}</td>}{columnVisible('Customers','orders') && <td>{row.orderCount || 0}</td>}{columnVisible('Customers','totalSpent') && <td>{cash(row.totalSpent)}</td>}{columnVisible('Customers','outstandingBalance') && <td><b className={Number(row.outstandingBalance)>0?'khata-balance-due':'khata-balance-clear'}>{cash(row.outstandingBalance)}</b></td>}{columnVisible('Customers','lastPurchase') && <td>{asDate(row.lastPurchaseAt)}</td>}<td><div className="table-action-group">{canManage && Number(row.outstandingBalance)>0 && <LiveButton icon={Wallet} onClick={()=>openCreditRepayment(row)} disabled={busy}>Record payment</LiveButton>}{canManage && <LiveButton onClick={()=>toggleActive('customers',row)}>{Number(row.isActive) ? 'Deactivate' : 'Activate'}</LiveButton>}</div></td></tr>)}
         {page === 'Purchases' && currentRows.map(row=><tr key={row.id}>{columnVisible('Purchases','purchaseNo') && <td><b>{row.purchaseNo}</b></td>}{columnVisible('Purchases','supplier') && <td>{row.supplier || 'No supplier'}</td>}{columnVisible('Purchases','purchaseDate') && <td>{asDate(row.purchaseDate)}</td>}{columnVisible('Purchases','lineCount') && <td>{row.lineCount || 0}</td>}{columnVisible('Purchases','totalAmount') && <td>{cash(row.totalAmount)}</td>}{columnVisible('Purchases','status') && <td><StatusPill value={row.status}/></td>}<td><div className="table-action-group">{canManage && String(row.status).toUpperCase()==='ORDERED' && Number(row.quantityReceived || 0)===0 && <><LiveButton icon={Pencil} onClick={()=>openEdit(row)} disabled={busy}>Edit</LiveButton><LiveButton variant="danger" icon={X} onClick={()=>cancelPurchase(row)} disabled={busy}>Cancel</LiveButton></>}{['ORDERED','PARTIALLY_RECEIVED'].includes(String(row.status).toUpperCase()) && canManage && <LiveButton variant="primary" onClick={()=>openReceive(row)} disabled={busy}>Receive</LiveButton>}</div></td></tr>)}
         {page === 'Transactions' && currentRows.map(row=><tr key={row.id}>{columnVisible('Transactions','receiptNo') && <td><b>{row.receiptNo}</b><small className="live-cell-sub">{row.lineCount || 0} item lines</small></td>}{columnVisible('Transactions','customer') && <td>{row.customer || 'Walk-in Customer'}</td>}{columnVisible('Transactions','cashier') && <td>{row.cashier || '—'}</td>}{columnVisible('Transactions','date') && <td>{asDate(row.completedAt)}</td>}{columnVisible('Transactions','payment') && <td>{prettyStatus(row.paymentMethod || row.method)}</td>}{columnVisible('Transactions','total') && <td>{cash(row.totalAmount)}</td>}{columnVisible('Transactions','status') && <td><StatusPill value={row.status}/></td>}<td><button className="icon-button small" onClick={()=>openTransaction(row)} aria-label="View transaction"><Eye size={16}/></button></td></tr>)}
       </tbody></table></div>}
@@ -869,6 +890,21 @@ export default function LiveModulePage({ page, auth, items, setItems, notify, on
           </div>)}
         {!(form.permissionModules || []).some(module => PERMISSION_COLUMN_OPTIONS[module]) && <div className="permission-empty">No table-based modules are enabled. Enable a module above to configure its columns.</div>}
       </section>
+    </LiveModal>}
+
+    {modal === 'credit-payment' && <LiveModal title={'Record Khata payment · ' + (form.customerName || 'Customer')} subtitle="Record money received from the customer. This creates an immutable ledger entry and reduces their outstanding balance." onClose={()=>setModal('')} onSubmit={submitCreditRepayment} busy={busy} submitLabel="Record payment" wide={false}>
+      <div className="khata-payment-summary">
+        <span>Outstanding balance</span>
+        <strong>{cash(form.outstandingBalance)}</strong>
+        <small>Payments cannot exceed the current balance.</small>
+      </div>
+      <div className="live-form-grid">
+        <Field label="Amount received *"><input className="form-input" type="number" required min="0.01" max={form.outstandingBalance} step="0.01" value={form.amount || ''} onChange={e=>setValue('amount',e.target.value)}/></Field>
+        <Field label="Payment method *"><select className="form-input" value={form.method || 'Cash'} onChange={e=>setValue('method',e.target.value)}><option value="Cash">Cash</option><option value="UPI">UPI</option><option value="Card">Card</option></select></Field>
+        <Field label="Reference number (optional)"><input className="form-input" maxLength={120} value={form.referenceNo || ''} onChange={e=>setValue('referenceNo',e.target.value)} placeholder="UPI or transaction reference"/></Field>
+        <Field label="Notes (optional)"><input className="form-input" maxLength={500} value={form.notes || ''} onChange={e=>setValue('notes',e.target.value)} placeholder="Repayment note"/></Field>
+      </div>
+      <div className="info-callout"><CircleHelp size={16}/><span>Repayments are recorded in the Khata ledger. This does not initiate a UPI, card, or bank transfer.</span></div>
     </LiveModal>}
 
     {modal === 'staff-password' && <LiveModal title="Reset staff password" subtitle={'Set a new sign-in password for ' + (form.staffName || 'this account') + '.'} onClose={()=>setModal('')} onSubmit={resetStaffPassword} busy={busy} submitLabel="Reset password">

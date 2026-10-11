@@ -387,8 +387,8 @@ export default function EmployeesPage({ auth, notify, onUnauthorized, currency =
 
     <div className="employee-stats-grid">
       <StatCard icon={Users} label="Active employees" value={loading ? '—' : Number(summary?.activeEmployees || 0).toLocaleString('en-IN')} note="Current active directory" tone="violet"/>
-      <StatCard icon={Wallet} label="Monthly payroll" value={loading ? '—' : money(summary?.monthlyPayroll)} note="Current salary commitment" tone="blue"/>
       <StatCard icon={CheckCircle2} label="Salary paid" value={loading ? '—' : money(summary?.salaryPaid)} note={periodPreset === 'all' ? 'All recorded salary payments' : 'Paid within selected period'} tone="green"/>
+      <StatCard icon={Clock3} label="Salary due" value={loading ? '—' : money(summary?.salaryDue)} note={periodPreset === 'all' ? 'All unpaid payroll due up to today' : 'Unpaid payroll due in selected period'} tone="blue"/>
       <StatCard icon={CircleDollarSign} label="Employee expenses" value={loading ? '—' : money(summary?.expensesTotal)} note={periodPreset === 'all' ? 'All recorded employee expenses' : 'Expenses within selected period'} tone="amber"/>
     </div>
 

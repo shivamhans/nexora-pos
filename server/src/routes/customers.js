@@ -15,7 +15,9 @@ router.get('/', async (req, res, next) => {
       SELECT c.id, c.name, c.email, c.phone, c.notes, c.is_active AS isActive,
         COUNT(DISTINCT CASE WHEN s.status = 'COMPLETED' THEN s.id END) AS orderCount,
         COALESCE(SUM(CASE WHEN s.status = 'COMPLETED' THEN s.total_amount ELSE 0 END),0) AS totalSpent,
-        MAX(CASE WHEN s.status = 'COMPLETED' THEN s.completed_at END) AS lastPurchaseAt
+        MAX(CASE WHEN s.status = 'COMPLETED' THEN s.completed_at END) AS lastPurchaseAt,
+        COALESCE((SELECT SUM(CASE WHEN l.entry_type = 'CREDIT_SALE' THEN l.amount ELSE -l.amount END)
+          FROM customer_credit_ledger l WHERE l.customer_id = c.id), 0) AS outstandingBalance
       FROM customers c LEFT JOIN sales s ON s.customer_id = c.id
       WHERE (? = '' OR c.name LIKE ? OR COALESCE(c.email,'') LIKE ? OR COALESCE(c.phone,'') LIKE ?)
         ${includeInactive ? '' : 'AND c.is_active = 1'}
@@ -35,7 +37,7 @@ router.post('/', async (req, res, next) => {
     if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: 'Enter a valid email address.' });
     const [r] = await pool.execute('INSERT INTO customers (name, email, phone, notes) VALUES (?, ?, ?, ?)', [name, email, phone, notes]);
     await pool.execute('INSERT INTO audit_logs (user_id, action, entity_type, entity_id, after_json) VALUES (?, ?, ?, ?, ?)', [req.user.sub, 'CUSTOMER_CREATED', 'CUSTOMER', r.insertId, JSON.stringify({ name, email, phone })]);
-    res.status(201).json({ customer: { id: r.insertId, name, email, phone, notes, isActive: 1, orderCount: 0, totalSpent: 0 } });
+    res.status(201).json({ customer: { id: r.insertId, name, email, phone, notes, isActive: 1, orderCount: 0, totalSpent: 0, outstandingBalance: 0 } });
   } catch (error) { next(error); }
 });
 

@@ -358,7 +358,6 @@ select{color-scheme:light}
 @media(max-width:560px){.business-logo-upload{gap:10px}.business-logo-preview{width:72px;height:72px;flex-basis:72px}.dashboard-top-product{grid-template-columns:28px minmax(0,1fr) auto;gap:8px}.dashboard-top-rank{width:28px;height:28px}}
 
 /* Dashboard layout refinement: let content determine panel height and reflow before it gets cramped. */
-.dashboard-page {}
 .stats-grid {
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 228px), 1fr));
   align-items: stretch;

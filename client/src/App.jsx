@@ -296,23 +296,23 @@ async function createReceiptPng(sale, businessName, money, logoData = '') {
       ctx.beginPath(); ctx.arc(cardX + 830, cardY + 80, 94, 0, Math.PI * 2); ctx.stroke(); ctx.beginPath(); ctx.arc(cardX + 830, cardY + 80, 132, 0, Math.PI * 2); ctx.stroke(); ctx.globalAlpha = 1;
       if (logoImage) {
         ctx.save();
-        roundedRect(ctx, cardX + 42, cardY + 36, 66, 66, 18); ctx.clip();
-        ctx.fillStyle = '#ffffff'; ctx.fillRect(cardX + 42, cardY + 36, 66, 66);
+        roundedRect(ctx, cardX + 42, cardY + 34, 122, 122, 25); ctx.clip();
+        ctx.fillStyle = '#ffffff'; ctx.fillRect(cardX + 42, cardY + 34, 122, 122);
         const sourceWidth = logoImage.naturalWidth || logoImage.width || 1;
         const sourceHeight = logoImage.naturalHeight || logoImage.height || 1;
-        const logoScale = Math.min(62 / sourceWidth, 62 / sourceHeight);
+        const logoScale = Math.min(104 / sourceWidth, 104 / sourceHeight);
         const logoWidth = sourceWidth * logoScale;
         const logoHeight = sourceHeight * logoScale;
-        ctx.drawImage(logoImage, cardX + 44 + (62 - logoWidth) / 2, cardY + 38 + (62 - logoHeight) / 2, logoWidth, logoHeight);
+        ctx.drawImage(logoImage, cardX + 51 + (104 - logoWidth) / 2, cardY + 43 + (104 - logoHeight) / 2, logoWidth, logoHeight);
         ctx.restore();
       } else {
-        roundedRect(ctx, cardX + 42, cardY + 36, 66, 66, 18); ctx.fillStyle = 'rgba(255,255,255,.16)'; ctx.fill(); ctx.fillStyle = '#ffffff';
-        [[0,0],[1,0],[0,1],[1,1]].forEach(([col,row]) => { roundedRect(ctx, cardX + 58 + col * 21, cardY + 52 + row * 21, 13, 13, 4); ctx.fill(); });
+        roundedRect(ctx, cardX + 42, cardY + 34, 122, 122, 25); ctx.fillStyle = 'rgba(255,255,255,.16)'; ctx.fill(); ctx.fillStyle = '#ffffff';
+        [[0,0],[1,0],[0,1],[1,1]].forEach(([col,row]) => { roundedRect(ctx, cardX + 66 + col * 35, cardY + 58 + row * 35, 22, 22, 6); ctx.fill(); });
       }
-      ctx.textAlign = 'left'; ctx.fillStyle = '#ffffff'; ctx.font = '700 24px Arial, sans-serif'; ctx.fillText(String(businessName || 'Nexora Store').slice(0, 34), cardX + 128, cardY + 61, cardW - 200);
-      ctx.fillStyle = 'rgba(255,255,255,.72)'; ctx.font = '600 13px Arial, sans-serif'; ctx.fillText('PAYMENT RECEIPT', cardX + 128, cardY + 86);
-      ctx.font = '700 39px Arial, sans-serif'; ctx.fillStyle = '#ffffff'; ctx.fillText(sale?.method === 'Credit' ? 'Khata sale recorded' : 'Payment confirmed', cardX + 42, cardY + 157, cardW - 84);
-      ctx.font = '500 18px Arial, sans-serif'; ctx.fillStyle = 'rgba(255,255,255,.82)'; ctx.fillText('Thank you for shopping with us.', cardX + 44, cardY + 200);
+      ctx.textAlign = 'left'; ctx.fillStyle = '#ffffff'; ctx.font = '700 30px Arial, sans-serif'; ctx.fillText(String(businessName || 'Nexora Store').slice(0, 34), cardX + 184, cardY + 78, cardW - 250);
+      ctx.fillStyle = 'rgba(255,255,255,.76)'; ctx.font = '700 13px Arial, sans-serif'; ctx.fillText('OFFICIAL STORE RECEIPT', cardX + 184, cardY + 111);
+      ctx.font = '700 38px Arial, sans-serif'; ctx.fillStyle = '#ffffff'; ctx.fillText(sale?.method === 'Credit' ? 'Khata sale recorded' : 'Payment confirmed', cardX + 42, cardY + 178, cardW - 84);
+      ctx.font = '500 18px Arial, sans-serif'; ctx.fillStyle = 'rgba(255,255,255,.82)'; ctx.fillText('Thank you for shopping with us.', cardX + 44, cardY + 218);
       roundedRect(ctx, cardX + cardW - 154, cardY + 183, 112, 38, 19); ctx.fillStyle = sale?.method === 'Credit' ? '#fff0d8' : '#d9ffef'; ctx.fill();
       ctx.fillStyle = sale?.method === 'Credit' ? '#925b0a' : '#17674f'; ctx.font = '700 14px Arial, sans-serif'; ctx.textAlign = 'center'; ctx.fillText(sale?.method === 'Credit' ? 'ON KHATA' : '✓ PAID', cardX + cardW - 98, cardY + 207); ctx.restore();
       ctx.textAlign = 'left'; ctx.fillStyle = '#82799b'; ctx.font = '600 15px Arial, sans-serif'; ctx.fillText('RECEIPT NUMBER', cardX + 42, 321);

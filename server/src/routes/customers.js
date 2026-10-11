@@ -41,6 +41,7 @@ router.get('/', async (req, res, next) => {
       FROM customers c LEFT JOIN sales s ON s.customer_id = c.id
       ${visibleCustomerFilter}
     `);
+    const canViewCustomerAnalytics = req.user.role === 'Admin' || req.user.permissions?.modules?.includes('Customers');
     const mayViewKhata = req.user.role === 'Admin' || (
       req.user.permissions?.modules?.includes('Customers') &&
       req.user.permissions?.columns?.Customers?.includes('outstandingBalance')
@@ -50,6 +51,10 @@ router.get('/', async (req, res, next) => {
       isBusiness: boolValue(row.isBusiness),
       isActive: boolValue(row.isActive),
     })).map(row => {
+      if (!canViewCustomerAnalytics) {
+        const { orderCount: _orders, totalSpent: _totalSpent, businessSales: _businessSales, lastPurchaseAt: _lastPurchase, ...posCustomer } = row;
+        return posCustomer;
+      }
       if (mayViewKhata) return row;
       const { outstandingBalance: _hiddenOutstandingBalance, ...safeCustomer } = row;
       return safeCustomer;
@@ -57,11 +62,11 @@ router.get('/', async (req, res, next) => {
     const rawSummary = summaryRows[0] || {};
     res.json({
       customers: safeCustomers,
-      summary: {
+      summary: canViewCustomerAnalytics ? {
         recordCount: Number(rawSummary.recordCount || 0),
         totalCustomerSpend: Number(Number(rawSummary.totalCustomerSpend || 0).toFixed(2)),
         businessSales: Number(Number(rawSummary.businessSales || 0).toFixed(2)),
-      },
+      } : null,
     });
   } catch (error) { next(error); }
 });

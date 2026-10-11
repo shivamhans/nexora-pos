@@ -45,6 +45,7 @@ jobs:
           node --check server/src/routes/inventory.js
           node --check server/src/routes/transactions.js
           node --check server/src/routes/staff.js
+          node --check server/src/routes/employees.js
           node --check server/src/routes/returns.js
           node --check server/src/routes/settings.js
           node --check server/src/routes/reports.js

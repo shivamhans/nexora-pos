@@ -974,3 +974,16 @@ select{color-scheme:light}
 .workspace-avatar { overflow:hidden;flex:0 0 36px;width:36px;height:36px;padding:2px; }
 .workspace-logo-image { display:block;width:100%;height:100%;object-fit:contain;border-radius:8px;background:#fff; }
 
+/* Store branding in transaction-history print receipts. */
+.print-receipt-logo {
+  display:block;
+  width:116px;
+  height:68px;
+  object-fit:contain;
+  padding:4px;
+  margin:0 auto 8px;
+  border:1px solid #e9e3ff;
+  border-radius:10px;
+  background:#fff;
+}
+

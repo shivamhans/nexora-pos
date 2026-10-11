@@ -209,7 +209,11 @@ function Dashboard({ items, onNavigate, isLive = false, auth, currency = 'INR' }
         <div className="panel-head"><div><h2>Customer Khata</h2><p>Outstanding credit across registered customers.</p></div><BookOpen size={19} color="var(--violet)"/></div>
         <div className="khata-dashboard-total">{demo || loading || !reportData ? '—' : formatAmount(summary?.khataOutstanding || 0)}</div>
         <div className="khata-dashboard-meta">{demo ? 'Sign in to view saved Khata balances.' : loading || !reportData ? 'Loading customer balances…' : Number(summary?.customersOwing || 0) === 0 ? 'No customers currently owe a balance.' : String(summary.customersOwing) + ' registered customer' + (Number(summary.customersOwing) === 1 ? '' : 's') + ' with an outstanding balance.'}</div>
-        <div className="khata-dashboard-meta">Credit sales in selected period: {demo || loading || !reportData ? '—' : `${formatAmount(summary?.creditSalesTotal || 0)} · ${Number(summary?.creditSalesCount || 0)} sale${Number(summary?.creditSalesCount || 0) === 1 ? '' : 's'}`}. These are receivables, not collected payments.</div>
+        <div className="khata-credit-period">
+          <div><small>Credit sales this period</small><b>{demo || loading || !reportData ? '—' : formatAmount(summary?.creditSalesTotal || 0)}</b></div>
+          <span>{demo || loading || !reportData ? '—' : Number(summary?.creditSalesCount || 0) + ' sale' + (Number(summary?.creditSalesCount || 0) === 1 ? '' : 's')}</span>
+          <p>Receivables, not collected payments.</p>
+        </div>
         <Button className="full-width" onClick={() => onNavigate('Customers')}>View customer balances <ArrowRight size={15}/></Button>
       </section>}
       </div>
@@ -220,7 +224,11 @@ function Dashboard({ items, onNavigate, isLive = false, auth, currency = 'INR' }
       </section>
         <section className="panel top-selling-panel">
         <div className="panel-head"><div><h2>Top-selling products</h2><p>Products with the most units sold in this reporting period.</p></div><TrendingUp size={18}/></div>
-        {!isLive ? <EmptyState icon={Package} title="Live data unavailable" text="Sign in to view your saved top-selling products."/> : loading ? <EmptyState icon={TrendingUp} title="Loading top sellers" text="Calculating units sold from completed sales."/> : reportError ? unavailable('Correct the database issue above, then retry.') : topSellingRows.length ? <div className="dashboard-top-products">{topSellingRows.map((row,index)=><div className="dashboard-top-product" key={row.itemId || row.name}><span className="dashboard-top-rank">{index+1}</span><div className="dashboard-top-product-copy"><b>{row.name}</b><small>{row.sku || 'No SKU'}</small></div><div className="dashboard-top-product-value"><b>{Number(row.unitsSold || 0).toLocaleString('en-IN')} sold</b><small>{formatAmount(row.salesAmount)}</small></div></div>)}</div> : <EmptyState icon={Package} title="No products sold yet" text="Completed sale lines will appear here once products are sold."/>}
+        {!isLive ? <EmptyState icon={Package} title="Live data unavailable" text="Sign in to view your saved top-selling products."/> : loading ? <EmptyState icon={TrendingUp} title="Loading top sellers" text="Calculating units sold from completed sales."/> : reportError ? unavailable('Correct the database issue above, then retry.') : topSellingRows.length ? <div className="dashboard-top-products">{topSellingRows.map((row,index) => {
+          const maxUnits = Math.max(1, ...topSellingRows.map(product => Number(product.unitsSold || 0)));
+          const relativeUnits = Math.max(0, Math.min(100, Number(row.unitsSold || 0) / maxUnits * 100));
+          return <div className="dashboard-top-product" key={row.itemId || row.name}><span className="dashboard-top-rank">{index+1}</span><div className="dashboard-top-product-copy"><b>{row.name}</b><small>{row.sku || 'No SKU'}</small><span className="dashboard-top-product-meter"><i style={{width: relativeUnits + '%'}}/></span></div><div className="dashboard-top-product-value"><b>{Number(row.unitsSold || 0).toLocaleString('en-IN')} sold</b><small>{formatAmount(row.salesAmount)}</small></div></div>;
+        })}</div> : <EmptyState icon={Package} title="No products sold yet" text="Completed sale lines will appear here once products are sold."/>}
       </section>
       </div>
     </div>

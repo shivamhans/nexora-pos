@@ -599,7 +599,8 @@ function App() {
   const userName = auth?.user?.name || 'Alex Rivera';
   const userInitials = userName.split(/\s+/).filter(Boolean).slice(0, 2).map(part => part[0].toUpperCase()).join('') || 'AR';
   const inventoryAttentionCount = items.filter(item => Number(item.stock) <= Number(item.reorderThreshold ?? 8)).length;
-  const visibleModules = auth?.user?.permissions?.modules || APP_ROLE_MODULES[role] || APP_ROLE_MODULES.Cashier;
+  const fallbackModules = APP_ROLE_MODULES[role] || APP_ROLE_MODULES.Cashier;
+  const visibleModules = auth?.user?.permissions?.modules || (auth ? fallbackModules : fallbackModules.filter(module => module !== 'Employees'));
   const visibleNavGroups = navGroups.map(group => ({ ...group, items: group.items.filter(item => visibleModules.includes(item.id)) })).filter(group => group.items.length > 0);
   if (!auth && !demoMode) return <LoginScreen onLogin={login} onDemo={() => setDemoMode(true)} />;
   if (auth && apiLoading) return <div className="app-loading-screen"><div className="login-brand-mark"><i /><i /><i /><i /></div><h2>Preparing your workspace</h2><p>Connecting your store catalog…</p></div>;

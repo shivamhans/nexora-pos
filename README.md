@@ -152,7 +152,7 @@ For devices **not** on the same Wi-Fi, use separate ngrok tunnels. Set `NGROK_HO
 ## Known limitations and decisions
 - Manual return/refund settlement is recorded for a selected method (Cash/UPI/Card); no payment gateway is called.
 - Split payments remain out of scope.
-- Khata repayments reduce the customer's overall balance; repayment allocation to individual invoices is not yet implemented. Credit sales should not be returned through the standard cash-refund flow until a credit-note/Khata adjustment workflow is added.
+- Khata repayments reduce the customer's overall balance; repayment allocation to individual invoices is not yet implemented. The standard return workflow blocks credit-sale returns while that customer has any outstanding Khata balance; settle the account first. A dedicated credit-note/Khata adjustment flow is still needed for returns against an outstanding account.
 - Freight capitalization into WAC remains blocked until the policy is approved.
 - A returned item restocked into inventory uses the original sale cost snapshot for the WAC update. Lines whose cost snapshot is provisional from a negative-stock override are blocked from restocking until that cost-basis policy is resolved; unresolved negative stock must also be reconciled first.
 - Damaged-stock write-offs are Admin-only and logged; full expense/write-off reporting remains incomplete.

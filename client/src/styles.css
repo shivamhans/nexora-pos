@@ -906,3 +906,7 @@ select{color-scheme:light}
   .payment-breakdown-value>b { font-size:9px; }
 }
 
+@media(max-width:1100px) {
+  .dashboard-main-grid,
+  .dashboard-bottom-grid { grid-template-columns:minmax(0,1fr); }
+}

@@ -13,6 +13,7 @@ The draft feature branch now includes:
 - **Purchase order cancellation:** Admins/Managers can cancel an `ORDERED` purchase only while no quantities have been received. Cancellation is transaction-protected, updates the order to `CANCELLED`, and writes a `PURCHASE_CANCELLED` audit record. It does not change on-hand stock or weighted-average cost. Received, partially received, and already cancelled purchases cannot be cancelled.
 - **Per-user permissions:** Admins can open **Permissions** for Manager/Cashier accounts, choose which workspace modules they may open, and choose which table columns are visible in each enabled table. The server enforces module access and role limits; Admin accounts always retain full access. Item average cost is omitted from the item-list API when the signed-in user has no enabled Items/Inventory average-cost column.
 - **Store branding:** Admins can upload a compressed logo in Settings. The saved logo and business name are used in the POS receipt preview and generated WhatsApp receipt PNG.
+- **Business customers:** Admins/Managers may mark an existing or new customer as a business. Customer statistics report saved completed sales linked to customers currently marked as businesses. Changing the classification also reclassifies that customer's historical sales in this aggregate; the underlying transactions remain unchanged.
 - **Customer Khata:** Credit is offered at checkout only when a registered active customer is selected. Credit sales and repayments are stored in an append-only customer ledger; the Customers page shows outstanding balances, ledger history, and a Record payment action. Overpayments are rejected and repayment actions are audited.
 - **Top sellers and Khata dashboard:** The dashboard shows the top five products by units sold, with order discounts reflected in product sales amounts. The payment-method chart reports actual paid collections only; Khata sales are shown separately from cash/UPI/card collected. The Khata panel shows total outstanding balance, customers owing, and credit sales for the selected period only to users with customer-balance permission.
 
@@ -57,6 +58,9 @@ If this installation has not already received the Phase 4 upgrade, open `databas
 
 ### 1b. Apply the Phase 5 Khata and store-logo migration
 Next, open `database/phase5-khata-branding-migration.sql` from this branch in MySQL Workbench and execute the whole script against `nexora_pos_cg`. It adds `business_settings.logo_data`, enables the `CREDIT` sales status, and creates `customer_credit_ledger` without dropping existing sales, customers, items, payments, or stock records. The migration is designed to be re-run. Review any SQL error rather than skipping failed statements.
+
+### 1d. Apply the Phase 7 business-customer migration
+Open `database/phase7-business-customers-migration.sql` and execute it against `nexora_pos_cg`. It adds the optional `customers.is_business` flag with a default of false. Existing customers stay classified as individuals until you explicitly mark them as businesses, and no sales or customer records are deleted.
 
 ### 1c. Apply the Phase 6 employee/payroll migration
 Open `database/phase6-employees-migration.sql` from this branch in MySQL Workbench and execute it against `nexora_pos_cg`. It creates the employee directory, expense register, monthly payroll snapshots and deduction-allocation tables. It does not drop or rewrite existing POS, customer, item, payment, or stock records. Back up the database first, and read any SQL error rather than ignoring it.

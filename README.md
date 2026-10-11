@@ -12,9 +12,12 @@ The draft feature branch now includes:
 - **Purchase order editing:** Admins/Managers can edit the supplier, date, notes, line items, quantities and unit costs while an order is still `ORDERED` and nothing has been received. Once any quantity is received, the API rejects edits so stock/WAC history cannot be rewritten. Every edit is audited.
 - **Purchase order cancellation:** Admins/Managers can cancel an `ORDERED` purchase only while no quantities have been received. Cancellation is transaction-protected, updates the order to `CANCELLED`, and writes a `PURCHASE_CANCELLED` audit record. It does not change on-hand stock or weighted-average cost. Received, partially received, and already cancelled purchases cannot be cancelled.
 - **Per-user permissions:** Admins can open **Permissions** for Manager/Cashier accounts, choose which workspace modules they may open, and choose which table columns are visible in each enabled table. The server enforces module access and role limits; Admin accounts always retain full access. Item average cost is omitted from the item-list API when the signed-in user has no enabled Items/Inventory average-cost column.
+- **Store branding:** Admins can upload a compressed logo in Settings. The saved logo and business name are used in the POS receipt preview and generated WhatsApp receipt PNG.
+- **Customer Khata:** Credit is offered at checkout only when a registered active customer is selected. Credit sales and repayments are stored in an append-only customer ledger; the Customers page shows outstanding balances, ledger history, and a Record payment action. Overpayments are rejected and repayment actions are audited.
+- **Top sellers and Khata dashboard:** The dashboard shows the top five products by units sold in the selected period and the total outstanding Khata balance plus customer count.
 
 - SKU auto-generation when creating an item without a custom code, compressed item-photo storage in MySQL, live product photos in the POS/catalog, and receipt-only printing.
-- **WhatsApp receipts:** POS lets the cashier choose a saved customer (autofilling their phone) or enter a WhatsApp number for a walk-in. After the sale, Nexora creates a branded receipt PNG and uses the browser's native file-share sheet to share the image only (no long text receipt) when supported, so the cashier can choose WhatsApp and the recipient. If image sharing is unavailable—commonly when the site is opened over plain HTTP on a private LAN—Nexora downloads the PNG and opens the customer's WhatsApp chat without prefilled text; attach the PNG manually before sending. A WhatsApp click-to-chat URL cannot attach a local image automatically. Ten-digit local numbers default to India (+91); enter a full country code for other countries.
+- **WhatsApp receipts:** POS lets the cashier choose a saved customer (autofilling their phone) or enter a WhatsApp number for a walk-in. The branded PNG uses the uploaded store logo and saved business name, plus receipt number/date, customer, line items, discount and total. Supported phones can share the image via the native share sheet; otherwise the PNG is downloaded and attached manually in the customer's WhatsApp chat. A WhatsApp click-to-chat URL cannot attach a local image automatically. Ten-digit local numbers default to India (+91); enter a full country code for other countries.
 - Supplier/customer directories, purchase orders and receiving with weighted-average-cost updates.
 - Searchable transaction history and partial returns with quantity/refund checks, optional restocking, manual settlement records, stock movements and audit history.
 - Admin-only staff management: invite staff, assign roles, activate/deactivate accounts, and reset passwords. Protected APIs reload current account role/status.
@@ -47,6 +50,9 @@ Alternatively, execute `database/schema.sql` in MySQL Workbench. It targets `nex
 
 ### 1a. Apply the Phase 4/5 upgrade migration
 If your browser displays errors like `Table 'nexora_pos_cg.negative_stock_reconciliation' doesn't exist` or `Table 'nexora_pos_cg.return_payments' doesn't exist`, your existing database predates the newer tables. In MySQL Workbench, open `database/phase4-migration.sql` from this branch and execute it. It safely creates `negative_stock_reconciliation` and `return_payments` if missing, adds `items.image_data` and `users.permissions_json` if missing, and does not drop existing records. Run the whole script after downloading this update, then restart the API. The migration is idempotent for these additions.
+
+### 1b. Apply the Phase 5 Khata and store-logo migration
+After updating to this feature branch, open `database/phase5-khata-branding-migration.sql` in MySQL Workbench and execute the whole script against `nexora_pos_cg`. It adds `business_settings.logo_data`, enables the `CREDIT` sale payment status, and creates the `customer_credit_ledger` table without dropping existing rows. Run it once before restarting the API; the script is safe to re-run.
 
 ### 2. Configure and start the API
 In the `server` folder, copy `server/.env.example` to `server/.env` (PowerShell from that folder: `Copy-Item .env.example .env`).
@@ -137,7 +143,7 @@ For devices **not** on the same Wi-Fi, use separate ngrok tunnels. Set `NGROK_HO
 - One configurable base currency; no foreign-exchange conversion. Changing the currency setting changes labels, not historical amounts.
 - Tax is disabled by default and cannot yet be enabled until a tax rate/rules policy is implemented.
 - Only Admin/Manager can apply discounts or override prices; reasons and audit records are required.
-- No credit sales; full payment is required before sale completion.
+- Khata / credit sales are allowed only for registered active customers. A credit sale adds the full discounted total to the customer's outstanding balance; repayments may be partial or full and cannot exceed the balance. Walk-in customers must pay in full. Repayments are logged, and no payment gateway is triggered.
 - Weighted-average-cost valuation; cost is updated when purchases are received.
 - Negative stock is blocked by default. An Admin override creates an audit record and reconciliation entry; an Admin must reconcile the physical count.
 - Stock changes use a movement ledger, and money uses DECIMAL database fields.
@@ -146,6 +152,7 @@ For devices **not** on the same Wi-Fi, use separate ngrok tunnels. Set `NGROK_HO
 ## Known limitations and decisions
 - Manual return/refund settlement is recorded for a selected method (Cash/UPI/Card); no payment gateway is called.
 - Split payments remain out of scope.
+- Khata repayments reduce the customer's overall balance; repayment allocation to individual invoices is not yet implemented. Credit sales should not be returned through the standard cash-refund flow until a credit-note/Khata adjustment workflow is added.
 - Freight capitalization into WAC remains blocked until the policy is approved.
 - A returned item restocked into inventory uses the original sale cost snapshot for the WAC update. Lines whose cost snapshot is provisional from a negative-stock override are blocked from restocking until that cost-basis policy is resolved; unresolved negative stock must also be reconciled first.
 - Damaged-stock write-offs are Admin-only and logged; full expense/write-off reporting remains incomplete.

@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS business_settings (
   tax_enabled BOOLEAN NOT NULL DEFAULT FALSE,
   valuation_method ENUM('WEIGHTED_AVG') NOT NULL DEFAULT 'WEIGHTED_AVG',
   receipt_footer VARCHAR(255) NULL,
+  logo_data MEDIUMTEXT NULL,
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   CONSTRAINT chk_single_settings_row CHECK (id = 1)
 ) ENGINE=InnoDB;
@@ -141,7 +142,7 @@ CREATE TABLE IF NOT EXISTS sales (
   discount_total DECIMAL(18,2) NOT NULL DEFAULT 0.00,
   tax_total DECIMAL(18,2) NOT NULL DEFAULT 0.00,
   total_amount DECIMAL(18,2) NOT NULL,
-  payment_status ENUM('PAID','VOID') NOT NULL DEFAULT 'PAID',
+  payment_status ENUM('PAID','CREDIT','VOID') NOT NULL DEFAULT 'PAID',
   negative_stock_override BOOLEAN NOT NULL DEFAULT FALSE,
   stock_override_reason VARCHAR(500) NULL,
   idempotency_key VARCHAR(100) NOT NULL UNIQUE,
@@ -187,6 +188,26 @@ CREATE TABLE IF NOT EXISTS payments (
   CONSTRAINT chk_payment_amounts CHECK (amount_received >= 0 AND change_due >= 0)
 ) ENGINE=InnoDB;
 
+CREATE TABLE IF NOT EXISTS customer_credit_ledger (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  customer_id BIGINT UNSIGNED NOT NULL,
+  sale_id BIGINT UNSIGNED NULL,
+  entry_type ENUM('CREDIT_SALE','REPAYMENT') NOT NULL,
+  amount DECIMAL(18,2) NOT NULL,
+  method ENUM('CASH','UPI','CARD') NULL,
+  reference_no VARCHAR(120) NULL,
+  notes VARCHAR(500) NULL,
+  created_by BIGINT UNSIGNED NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_credit_ledger_customer FOREIGN KEY (customer_id) REFERENCES customers(id),
+  CONSTRAINT fk_credit_ledger_sale FOREIGN KEY (sale_id) REFERENCES sales(id),
+  CONSTRAINT fk_credit_ledger_user FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL,
+  CONSTRAINT chk_credit_ledger_amount CHECK (amount > 0),
+  CONSTRAINT chk_credit_ledger_sale_entry CHECK ((entry_type = 'CREDIT_SALE' AND sale_id IS NOT NULL AND method IS NULL) OR (entry_type = 'REPAYMENT' AND sale_id IS NULL AND method IS NOT NULL)),
+  UNIQUE KEY uq_credit_ledger_sale (sale_id),
+  INDEX idx_credit_ledger_customer_created (customer_id, created_at),
+  INDEX idx_credit_ledger_type_created (entry_type, created_at)
+) ENGINE=InnoDB;
 CREATE TABLE IF NOT EXISTS stock_movements (
   id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
   item_id BIGINT UNSIGNED NOT NULL,

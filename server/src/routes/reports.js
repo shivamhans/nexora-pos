@@ -45,10 +45,12 @@ router.get('/summary', async (req, res, next) => {
       WHERE r.status = 'COMPLETED' AND DATE(r.completed_at) BETWEEN ? AND ?
     `, [from, to]);
     const [paymentRows] = await pool.execute(`
-      SELECT p.method, COUNT(*) AS paymentCount, COALESCE(SUM(s.total_amount),0) AS amount
-      FROM payments p JOIN sales s ON s.id = p.sale_id
+      SELECT CASE WHEN s.payment_status = 'CREDIT' THEN 'CREDIT' ELSE p.method END AS method,
+        COUNT(*) AS paymentCount, COALESCE(SUM(s.total_amount),0) AS amount
+      FROM sales s LEFT JOIN payments p ON p.sale_id = s.id
       WHERE s.status = 'COMPLETED' AND DATE(s.completed_at) BETWEEN ? AND ?
-      GROUP BY p.method ORDER BY amount DESC
+      GROUP BY CASE WHEN s.payment_status = 'CREDIT' THEN 'CREDIT' ELSE p.method END
+      ORDER BY amount DESC
     `, [from, to]);
     const [inventoryRows] = await pool.execute(`
       SELECT COUNT(*) AS itemCount,

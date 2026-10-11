@@ -122,10 +122,13 @@ router.get('/summary', async (req, res, next) => {
         outOfStockCount: Number(inventory.outOfStockCount || 0),
         negativeStockCount: Number(inventory.negativeStockCount || 0),
         openReconciliations: Number(queueRows[0].openReconciliations || 0),
+        khataOutstanding: money2(khataRows[0]?.outstandingTotal || 0),
+        customersOwing: Number(khataRows[0]?.customersOwing || 0),
       },
       payments: paymentRows.map(row => ({ method: row.method, paymentCount: Number(row.paymentCount), amount: money2(row.amount) })),
       daily,
       recentTransactions: recent.map(row => ({ ...row, totalAmount: money2(row.totalAmount) })),
+      topSellingProducts: topSellingRows.map(row => ({ ...row, unitsSold: Number(row.unitsSold || 0), salesAmount: money2(row.salesAmount) })),
       notes: ['Net revenue subtracts refunds completed in the selected period.', 'Gross profit is hidden when sales or restock lines in the period include provisional cost snapshots.', 'Net profit is not reported because an expense module is not present.'],
     });
   } catch (error) { next(error); }

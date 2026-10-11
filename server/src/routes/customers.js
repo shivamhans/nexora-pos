@@ -23,7 +23,14 @@ router.get('/', async (req, res, next) => {
         ${includeInactive ? '' : 'AND c.is_active = 1'}
       GROUP BY c.id ORDER BY c.name LIMIT 250
     `, [q, `%${q}%`, `%${q}%`, `%${q}%`]);
-    res.json({ customers });
+    const mayViewKhata = req.user.role === 'Admin' || (
+      req.user.permissions?.modules?.includes('Customers') &&
+      req.user.permissions?.columns?.Customers?.includes('outstandingBalance')
+    );
+    res.json({ customers: mayViewKhata ? customers : customers.map(row => {
+      const { outstandingBalance: _hiddenOutstandingBalance, ...safeCustomer } = row;
+      return safeCustomer;
+    }) });
   } catch (error) { next(error); }
 });
 

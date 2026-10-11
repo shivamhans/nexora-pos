@@ -20,7 +20,7 @@ export const COLUMN_OPTIONS = {
   Categories: { category: 'Category', itemCount: 'Item count', description: 'Description', status: 'Status' },
   Purchases: { purchaseNo: 'Purchase number', supplier: 'Supplier', purchaseDate: 'Order date', lineCount: 'Lines', totalAmount: 'Total', status: 'Status' },
   Suppliers: { supplier: 'Supplier', contact: 'Contact', emailPhone: 'Email / phone', purchaseOrders: 'Purchase orders', status: 'Status' },
-  Customers: { customer: 'Customer', contact: 'Contact', orders: 'Orders', totalSpent: 'Total spent', lastPurchase: 'Last purchase' },
+  Customers: { customer: 'Customer', contact: 'Contact', orders: 'Orders', totalSpent: 'Total spent', outstandingBalance: 'Khata outstanding', lastPurchase: 'Last purchase' },
   Transactions: { receiptNo: 'Receipt', customer: 'Customer', cashier: 'Cashier', date: 'Date', payment: 'Payment method', total: 'Total', status: 'Status' },
   'Returns & Refunds': { returnNo: 'Return number', receiptNo: 'Original receipt', customer: 'Customer', date: 'Date', refund: 'Refund', settlement: 'Settlement', status: 'Status' },
 };

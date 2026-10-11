@@ -564,17 +564,25 @@ export default function LiveModulePage({ page, auth, items, setItems, notify, on
     if (file.size > 8 * 1024 * 1024) { notify('Choose a logo image under 8 MB. Nexora will resize it before saving.', 'warning'); return; }
     try {
       const bitmap = await createImageBitmap(file);
-      const maxSide = 420;
-      const scale = Math.min(1, maxSide / Math.max(bitmap.width, bitmap.height));
       const canvas = document.createElement('canvas');
-      canvas.width = Math.max(1, Math.round(bitmap.width * scale));
-      canvas.height = Math.max(1, Math.round(bitmap.height * scale));
       const context = canvas.getContext('2d');
-      if (!context) throw new Error('Could not prepare the logo image.');
-      context.fillStyle = '#ffffff'; context.fillRect(0, 0, canvas.width, canvas.height);
-      context.drawImage(bitmap, 0, 0, canvas.width, canvas.height); bitmap.close?.();
-      const logoData = canvas.toDataURL('image/jpeg', 0.78);
-      if (logoData.length > 650000) throw new Error('The compressed logo is still too large. Choose a smaller image.');
+      if (!context) { bitmap.close?.(); throw new Error('Could not prepare the logo image.'); }
+
+      // Keep the canvas transparent. Exporting as JPEG or painting white behind
+      // the image destroys the alpha channel of background-removed PNG/WebP logos.
+      // Shrink progressively until the transparent PNG fits the API's size limit.
+      let logoData = '';
+      for (const maxSide of [420, 360, 300, 240, 180, 128]) {
+        const scale = Math.min(1, maxSide / Math.max(bitmap.width, bitmap.height));
+        canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+        canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+        context.clearRect(0, 0, canvas.width, canvas.height);
+        context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+        const candidate = canvas.toDataURL('image/png');
+        if (candidate.length <= 650000) { logoData = candidate; break; }
+      }
+      bitmap.close?.();
+      if (!logoData) throw new Error('This logo could not be compressed enough while preserving its transparent background. Choose a simpler or smaller PNG.');
       const previousLogo = settings?.logoData || '';
       setSettings(old => ({ ...old, logoData }));
       setBusy(true);

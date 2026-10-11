@@ -6,6 +6,7 @@ import { pool } from './db.js';
 import authRoutes from './routes/auth.js';
 import itemRoutes from './routes/items.js';
 import salesRoutes from './routes/sales.js';
+import creditRoutes from './routes/credit.js';
 import categoriesRoutes from './routes/categories.js';
 import customersRoutes from './routes/customers.js';
 import suppliersRoutes from './routes/suppliers.js';
@@ -59,6 +60,7 @@ app.get('/api/health', async (_req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/items', itemRoutes);
 app.use('/api/sales', salesRoutes);
+app.use('/api/credit', creditRoutes);
 app.use('/api/categories', categoriesRoutes);
 app.use('/api/customers', customersRoutes);
 app.use('/api/suppliers', suppliersRoutes);

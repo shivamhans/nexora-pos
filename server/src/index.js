@@ -17,6 +17,7 @@ import staffRoutes from './routes/staff.js';
 import returnsRoutes from './routes/returns.js';
 import settingsRoutes from './routes/settings.js';
 import reportsRoutes from './routes/reports.js';
+import employeesRoutes from './routes/employees.js';
 
 const app = express();
 app.use(helmet());
@@ -71,6 +72,7 @@ app.use('/api/staff', staffRoutes);
 app.use('/api/returns', returnsRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/reports', reportsRoutes);
+app.use('/api/employees', employeesRoutes);
 app.use((req, res) => res.status(404).json({ error: `Route not found: ${req.method} ${req.path}` }));
 app.use((error, _req, res, _next) => {
   console.error(error);

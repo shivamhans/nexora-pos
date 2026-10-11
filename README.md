@@ -59,9 +59,6 @@ If this installation has not already received the Phase 4 upgrade, open `databas
 ### 1b. Apply the Phase 5 Khata and store-logo migration
 Next, open `database/phase5-khata-branding-migration.sql` from this branch in MySQL Workbench and execute the whole script against `nexora_pos_cg`. It adds `business_settings.logo_data`, enables the `CREDIT` sales status, and creates `customer_credit_ledger` without dropping existing sales, customers, items, payments, or stock records. The migration is designed to be re-run. Review any SQL error rather than skipping failed statements.
 
-### 1d. Apply the Phase 7 business-customer migration
-Open `database/phase7-business-customers-migration.sql` and execute it against `nexora_pos_cg`. It adds the optional `customers.is_business` flag with a default of false. Existing customers stay classified as individuals until you explicitly mark them as businesses, and no sales or customer records are deleted.
-
 ### 1c. Apply the Phase 6 employee/payroll migration
 Open `database/phase6-employees-migration.sql` from this branch in MySQL Workbench and execute it against `nexora_pos_cg`. It creates the employee directory, expense register, monthly payroll snapshots and deduction-allocation tables. It does not drop or rewrite existing POS, customer, item, payment, or stock records. Back up the database first, and read any SQL error rather than ignoring it.
 
@@ -72,6 +69,9 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ```
 
 Copy the output to `EMPLOYEE_PII_ENCRYPTION_KEY=` in `server/.env`, then restart the API. Never commit or share this key; back it up somewhere secure. **If the key is lost, saved Aadhaar values cannot be decrypted.** Aadhaar remains optional—employee profiles and payroll work without it.
+
+### 1d. Apply the Phase 7 business-customer migration
+Open `database/phase7-business-customers-migration.sql` and execute it against `nexora_pos_cg`. It adds the optional `customers.is_business` flag with a default of false. Existing customers stay classified as individuals until you explicitly mark them as businesses, and no sales or customer records are deleted.
 
 After all applicable migrations complete successfully, restart the Express API. Then check `http://localhost:4001/api/health` and confirm it reports `"database":"connected"`.
 

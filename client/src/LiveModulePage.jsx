@@ -73,7 +73,7 @@ function BlankState({ title, text, onAdd, addLabel }) {
   return <div className="empty-state live-empty"><div className="empty-icon"><ClipboardList size={21}/></div><h3>{title}</h3><p>{text}</p>{onAdd && <LiveButton variant="primary" icon={Plus} onClick={onAdd}>{addLabel || 'Add first record'}</LiveButton>}</div>;
 }
 
-export default function LiveModulePage({ page, auth, items, setItems, notify, onUnauthorized, onNavigate, onCurrencyChange, onBusinessNameChange }) {
+export default function LiveModulePage({ page, auth, items, setItems, notify, onUnauthorized, onNavigate, onCurrencyChange, onBusinessNameChange, onBusinessLogoChange }) {
   const [categories, setCategories] = useState([]);
   const [suppliers, setSuppliers] = useState([]);
   const [customers, setCustomers] = useState([]);
@@ -514,6 +514,29 @@ export default function LiveModulePage({ page, auth, items, setItems, notify, on
     if (saved) setForm(old => ({ ...old, password: '' }));
   };
 
+  const handleBusinessLogo = async event => {
+    const file = event.currentTarget.files?.[0];
+    event.currentTarget.value = '';
+    if (!file) return;
+    if (!file.type.startsWith('image/')) { notify('Choose an image file for your store logo.', 'warning'); return; }
+    if (file.size > 8 * 1024 * 1024) { notify('Choose a logo image under 8 MB. Nexora will resize it before saving.', 'warning'); return; }
+    try {
+      const bitmap = await createImageBitmap(file);
+      const maxSide = 420;
+      const scale = Math.min(1, maxSide / Math.max(bitmap.width, bitmap.height));
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+      canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+      const context = canvas.getContext('2d');
+      if (!context) throw new Error('Could not prepare the logo image.');
+      context.fillStyle = '#ffffff'; context.fillRect(0, 0, canvas.width, canvas.height);
+      context.drawImage(bitmap, 0, 0, canvas.width, canvas.height); bitmap.close?.();
+      const logoData = canvas.toDataURL('image/jpeg', 0.78);
+      if (logoData.length > 650000) throw new Error('The compressed logo is still too large. Choose a smaller image.');
+      setSettings(old => ({ ...old, logoData }));
+      notify('Logo prepared. Save settings to apply it to receipts.', 'success');
+    } catch (error) { notify(error.message || 'Could not prepare the logo image.', 'warning'); }
+  };
   const saveSettings = async event => {
     event.preventDefault();
     if (!settings || busy) return;
@@ -525,11 +548,13 @@ export default function LiveModulePage({ page, auth, items, setItems, notify, on
         locale: settings.locale,
         timezone: settings.timezone,
         receiptFooter: settings.receiptFooter || null,
+        logoData: settings.logoData || null,
         taxEnabled: false,
       } });
       setSettings(result.settings);
       if (onCurrencyChange) onCurrencyChange(result.settings.currencyCode);
       if (onBusinessNameChange) onBusinessNameChange(result.settings.businessName);
+      if (onBusinessLogoChange) onBusinessLogoChange(result.settings.logoData || '');
       notify('Business settings saved to MySQL.', 'success');
     } catch (error) {
       notify(error.message || 'Could not save business settings.', 'warning');
@@ -709,6 +734,16 @@ export default function LiveModulePage({ page, auth, items, setItems, notify, on
       <form className="settings-live-form" onSubmit={saveSettings}>
         <div className="live-form-grid">
           <Field label="Business name *"><input className="form-input" required maxLength={140} value={settings.businessName || ''} onChange={e=>setSettings(old=>({...old,businessName:e.target.value}))} disabled={role!=='Admin'}/></Field>
+          <Field label="Store logo (receipt branding)">
+            <div className="business-logo-upload">
+              <div className="business-logo-preview">{settings.logoData ? <img src={settings.logoData} alt="Store logo preview"/> : <Store size={24}/>}</div>
+              <div className="business-logo-controls">
+                <input className="form-input photo-file-input" type="file" accept="image/jpeg,image/png,image/webp" onChange={handleBusinessLogo} disabled={role!=='Admin' || busy}/>
+                <small>Used on the WhatsApp receipt image and receipt preview. Square or landscape logos work best; Nexora compresses the image before saving.</small>
+                {settings.logoData && role === 'Admin' && <button type="button" className="text-button" onClick={()=>setSettings(old=>({...old,logoData:null}))}>Remove logo</button>}
+              </div>
+            </div>
+          </Field>
           <Field label="Base currency"><select className="form-input" value={settings.currencyCode || 'INR'} onChange={e=>setSettings(old=>({...old,currencyCode:e.target.value}))} disabled={role!=='Admin'}><option value="INR">INR · Indian Rupee</option><option value="USD">USD · US Dollar</option><option value="GBP">GBP · British Pound</option><option value="EUR">EUR · Euro</option></select><small>Changing currency relabels values; it does not convert past amounts.</small></Field>
           <Field label="Number format locale"><select className="form-input" value={settings.locale || 'en-IN'} onChange={e=>setSettings(old=>({...old,locale:e.target.value}))} disabled={role!=='Admin'}><option value="en-IN">English (India)</option><option value="en-US">English (United States)</option><option value="en-GB">English (United Kingdom)</option></select></Field>
           <Field label="Time zone"><input className="form-input" maxLength={64} value={settings.timezone || 'Asia/Kolkata'} onChange={e=>setSettings(old=>({...old,timezone:e.target.value}))} disabled={role!=='Admin'} placeholder="Asia/Kolkata"/></Field>

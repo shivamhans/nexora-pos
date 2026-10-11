@@ -13,7 +13,7 @@ import {
   ReceiptText, ScanBarcode, RotateCcw, TrendingUp, CircleDollarSign, Warehouse, UserRound, RefreshCw, CircleCheck,
   ChevronUp, AlertTriangle, CheckCheck, Printer, Banknote, Smartphone, MessageCircle, BookOpen, CreditCard as CardIcon
 } from 'lucide-react';
-import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis, BarChart, Bar, PieChart, Pie, Cell } from 'recharts';
+import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis, BarChart, Bar } from 'recharts';
 
 const APP_ROLE_MODULES = {
   Admin: ['Dashboard', 'Point of Sale', 'Transactions', 'Inventory', 'Items', 'Categories', 'Purchases', 'Suppliers', 'Customers', 'Staff & Roles', 'Employees', 'Reports', 'Returns & Refunds', 'Settings'],
@@ -70,7 +70,7 @@ function Dashboard({ items, onNavigate, isLive = false, auth, currency = 'INR' }
   const [reportError, setReportError] = useState('');
   const [rangeDays, setRangeDays] = useState(7);
   const [refreshKey, setRefreshKey] = useState(0);
-  const paymentColors = ['#7968e8', '#4fbda0', '#f3b65f', '#5e9de7', '#d17abc'];
+  const paymentColors = { UPI: '#7968e8', Cash: '#f3b65f', Card: '#4fbda0', Khata: '#5e9de7' };
   const currencySymbol = reportData?.currency?.currencySymbol || ({ INR: '₹', USD: '$', GBP: '£', EUR: '€' }[currency] || currency + ' ');
   const formatAmount = value => currencySymbol + Number(value || 0).toLocaleString(reportData?.currency?.locale || 'en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const localDate = value => {
@@ -131,10 +131,23 @@ function Dashboard({ items, onNavigate, isLive = false, auth, currency = 'INR' }
   const dailyRows = demo ? salesData.map(row => ({ ...row, dayLabel: row.day, refunds: 0 })) :
     (reportData?.daily || []).map(row => ({ ...row, dayLabel: new Date(row.day + 'T00:00:00').toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }) }));
   const totalPeriodSales = demo ? 33400 : (reportData?.daily || []).reduce((sum, row) => sum + Number(row.sales || 0), 0);
-  const livePaymentTotal = (reportData?.payments || []).reduce((sum, row) => sum + Number(row.amount || 0), 0);
-  const paymentRows = demo
-    ? [{ method: 'Card', value: 48, percentage: 48, amount: 11784 }, { method: 'UPI', value: 32, percentage: 32, amount: 7856 }, { method: 'Cash', value: 20, percentage: 20, amount: 4916 }]
-    : (reportData?.payments || []).map(row => ({ ...row, value: Number(row.amount || 0), percentage: livePaymentTotal ? Number(row.amount || 0) / livePaymentTotal * 100 : 0 }));
+  const paymentAmount = method => demo
+    ? ({ UPI: 32308, Cash: 1208, Card: 2058, Khata: 653 }[method] || 0)
+    : (reportData?.payments || []).filter(row => String(row.method || '').toUpperCase() === method.toUpperCase())
+      .reduce((total, row) => total + Number(row.amount || 0), 0);
+  const paymentBreakdownAmounts = [
+    { method: 'UPI', amount: paymentAmount('UPI') },
+    { method: 'Cash', amount: paymentAmount('Cash') },
+    { method: 'Card', amount: paymentAmount('Card') },
+    ...((canViewKhata || demo) ? [{ method: 'Khata', amount: demo ? 653 : Number(summary?.creditSalesTotal || 0), isCredit: true }] : []),
+  ];
+  const paymentBreakdownTotal = paymentBreakdownAmounts.reduce((total, row) => total + Number(row.amount || 0), 0);
+  const paymentBreakdown = paymentBreakdownAmounts.map(row => ({
+    ...row,
+    percentage: paymentBreakdownTotal > 0 ? Number(row.amount || 0) / paymentBreakdownTotal * 100 : 0,
+    color: paymentColors[row.method],
+  }));
+  const hasPaymentActivity = paymentBreakdownTotal > 0;
   const recentRows = demo ? recentSales : (reportData?.recentTransactions || []).map(row => ({
     ...row,
     id: row.receiptNo,
@@ -170,9 +183,21 @@ function Dashboard({ items, onNavigate, isLive = false, auth, currency = 'INR' }
         <div className="chart-footer"><span><span className="tiny-dot"/>{demo ? 'Sample data only — no real sales trend is implied.' : reportData ? 'Period: ' + reportData.period.from + ' → ' + reportData.period.to : 'Waiting for live report data.'}</span><Button variant="text" onClick={() => onNavigate('Reports')}>View report <ArrowRight size={14}/></Button></div>
       </section>
       <section className="panel payment-panel">
-        <div className="panel-head"><div><h2>Payment methods</h2><p>{demo ? 'Illustrative sample shares.' : 'Recorded collections from fully paid sales.'}</p></div><button className="icon-button" aria-label="Payment methods"><Wallet size={18}/></button></div>
-        <div className="donut-wrap">{hasData && paymentRows.length ? <><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={paymentRows} dataKey="value" nameKey="method" cx="50%" cy="50%" innerRadius="65%" outerRadius="84%" paddingAngle={4} stroke="none">{paymentRows.map((row,index)=><Cell key={row.method} fill={paymentColors[index % paymentColors.length]}/>)}</Pie><Tooltip contentStyle={{background:'var(--popover)',border:'1px solid var(--line)',borderRadius:10,color:'var(--text)'}} formatter={(value,name) => [demo ? String(Number(value)) + '%' : formatAmount(value), name]}/></PieChart></ResponsiveContainer><div className="donut-center"><span>{loading ? '—' : formatAmount(demo ? 24556 : livePaymentTotal)}</span><small>{demo ? 'Sample total paid' : 'Collected payments'}</small></div></> : unavailable(reportError ? 'Payment totals are unavailable until the database schema is updated.' : 'No recorded payments in this period.')}</div>
-        <div className="payment-legend">{hasData && paymentRows.length ? paymentRows.map((row,index)=><div key={row.method}><span><i className="legend-dot" style={{background:paymentColors[index % paymentColors.length]}}/> {String(row.method).charAt(0).toUpperCase()+String(row.method).slice(1).toLowerCase()}</span><b>{demo ? row.percentage + '%' : formatAmount(row.amount)}</b></div>) : <span className="muted">No payment breakdown available.</span>}</div>
+        <div className="panel-head"><div><h2>Sales by payment type</h2><p>{demo ? 'Illustrative sales mix for this period.' : 'Share of completed sales value by payment type.'}</p></div><Wallet size={18} color="var(--violet)"/></div>
+        <div className="payment-total-row">
+          <div><small>Classified sales value</small><strong>{loading ? '—' : hasData ? formatAmount(paymentBreakdownTotal) : '—'}</strong></div>
+          <span className="payment-total-period"><CalendarDays size={13}/>{reportData?.period ? reportData.period.from + ' – ' + reportData.period.to : demo ? 'Sample period' : 'Selected period'}</span>
+        </div>
+        {loading ? <div className="payment-breakdown-loading"><RefreshCw size={18}/>Updating payment mix…</div> : hasData && hasPaymentActivity ? <div className="payment-breakdown-list">
+          {paymentBreakdown.map(row => <div className="payment-breakdown-row" key={row.method}>
+            <div className="payment-breakdown-heading">
+              <span className="payment-breakdown-label"><i style={{background:row.color}}/>{row.method}{row.isCredit && <small>Receivable</small>}</span>
+              <span className="payment-breakdown-value"><b>{formatAmount(row.amount)}</b><strong>{row.percentage.toFixed(1)}%</strong></span>
+            </div>
+            <div className="payment-breakdown-track" aria-label={row.method + ' ' + row.percentage.toFixed(1) + ' percent'}><span style={{width: row.percentage + '%', background:row.color}}/></div>
+          </div>)}
+        </div> : unavailable(reportError ? 'Payment totals are unavailable until the database issue is fixed.' : 'No completed sales were found in this period.')}
+        <div className="payment-breakdown-footnote"><BookOpen size={13}/><span>Khata represents credit sales, not money collected.</span></div>
       </section>
     </div>
     <div className="dashboard-bottom-grid">

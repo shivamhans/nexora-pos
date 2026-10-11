@@ -827,3 +827,82 @@ select{color-scheme:light}
   .employee-detail-metrics>div:last-child { border-bottom:0; }
 }
 
+/* Dashboard refinement: compact sales mix, balanced lower columns and padded summary cards. */
+.payment-panel { display:flex;flex-direction:column;align-self:start;gap:0; }
+.payment-panel > .panel-head { align-items:center; }
+.payment-total-row { display:flex;align-items:flex-end;justify-content:space-between;gap:10px;padding:16px 0 14px;margin-top:3px;border-bottom:1px solid var(--line); }
+.payment-total-row>div { display:flex;flex-direction:column;gap:5px;min-width:0; }
+.payment-total-row small { color:var(--muted);font-size:9px;font-weight:650; }
+.payment-total-row strong { color:var(--text);font-size:clamp(23px,2vw,29px);font-weight:850;line-height:1.15;letter-spacing:-.9px;overflow-wrap:anywhere;font-variant-numeric:tabular-nums; }
+.payment-total-period { display:inline-flex;align-items:center;justify-content:flex-end;gap:5px;max-width:50%;color:var(--subtle);font-size:8px;line-height:1.4;text-align:right; }
+.payment-total-period svg { flex:0 0 auto;color:var(--violet); }
+.payment-breakdown-list { display:flex;flex-direction:column;gap:13px;padding:15px 0 10px; }
+.payment-breakdown-row { min-width:0; }
+.payment-breakdown-heading { display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:7px; }
+.payment-breakdown-label { display:flex;align-items:center;gap:8px;min-width:0;color:var(--text);font-size:10px;font-weight:750; }
+.payment-breakdown-label>i { display:block;width:8px;height:8px;flex:0 0 8px;border-radius:50%; }
+.payment-breakdown-label>small { margin-left:2px;padding:3px 5px;border:1px solid var(--line);border-radius:5px;background:var(--surface);color:var(--muted);font-size:7px;font-weight:700; }
+.payment-breakdown-value { display:flex;align-items:center;justify-content:flex-end;gap:10px;min-width:0;font-variant-numeric:tabular-nums; }
+.payment-breakdown-value>b { color:var(--text);font-size:10px;font-weight:800;white-space:nowrap; }
+.payment-breakdown-value>strong { min-width:47px;color:var(--muted);font-size:9px;font-weight:750;text-align:right;white-space:nowrap; }
+.payment-breakdown-track { height:5px;width:100%;overflow:hidden;border-radius:99px;background:var(--surface-2); }
+.payment-breakdown-track>span { display:block;height:100%;max-width:100%;border-radius:99px;transition:width .25s ease; }
+.payment-breakdown-loading { display:flex;align-items:center;justify-content:center;gap:8px;min-height:100px;color:var(--muted);font-size:10px; }
+.payment-breakdown-loading svg { color:var(--violet);animation:employeeSpin 1s linear infinite; }
+.payment-breakdown-footnote { display:flex;align-items:flex-start;gap:7px;margin-top:auto;padding-top:10px;border-top:1px solid var(--line);color:var(--muted);font-size:8px;line-height:1.5; }
+.payment-breakdown-footnote svg { flex:0 0 auto;color:var(--violet); }
+.dashboard-stack-column > .top-selling-panel,
+.dashboard-stack-column > .khata-dashboard-panel { padding:18px; }
+.dashboard-stack-column > .top-selling-panel .panel-head,
+.dashboard-stack-column > .khata-dashboard-panel .panel-head { margin-bottom:7px; }
+.dashboard-top-products { margin-top:3px; }
+.dashboard-top-product { grid-template-columns:30px minmax(0,1fr) minmax(88px,auto);gap:11px;padding:12px 0; }
+.dashboard-top-product-copy { gap:4px; }
+.dashboard-top-product-copy>b { white-space:normal;line-height:1.35;overflow-wrap:anywhere; }
+.dashboard-top-product-meter { display:block;width:100%;max-width:210px;height:4px;margin-top:3px;overflow:hidden;border-radius:99px;background:var(--surface-2); }
+.dashboard-top-product-meter>i { display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,var(--violet),color-mix(in srgb,var(--violet) 58%,#b5aaff)); }
+.dashboard-top-product-value { min-width:0;max-width:100%; }
+.dashboard-top-product-value>b { white-space:nowrap;text-align:right; }
+.dashboard-top-product-value>small { white-space:normal;text-align:right; }
+.khata-dashboard-panel { display:flex;flex-direction:column;gap:0;align-self:start; }
+.khata-dashboard-panel .panel-head { align-items:flex-start; }
+.khata-dashboard-total { margin:4px 0 2px;font-size:clamp(25px,2vw,30px);line-height:1.15; }
+.khata-dashboard-meta { margin:0 0 9px;line-height:1.5;overflow-wrap:anywhere; }
+.khata-credit-period { display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:2px 10px;padding:10px 11px;margin:5px 0 13px;border:1px solid var(--line);border-radius:11px;background:var(--surface); }
+.khata-credit-period>div { display:flex;flex-direction:column;gap:4px;min-width:0; }
+.khata-credit-period>div>small { color:var(--muted);font-size:8px;line-height:1.4; }
+.khata-credit-period>div>b { color:var(--text);font-size:14px;font-weight:850;letter-spacing:-.25px;font-variant-numeric:tabular-nums;overflow-wrap:anywhere; }
+.khata-credit-period>span { padding:5px 7px;border-radius:7px;background:var(--violet-soft);color:var(--violet);font-size:8px;font-weight:800;white-space:nowrap; }
+.khata-credit-period>p { grid-column:1/-1;margin:1px 0 0;color:var(--subtle);font-size:8px;line-height:1.45; }
+.khata-dashboard-panel>.btn { margin-top:0; }
+.dashboard-stack-column > .top-selling-panel .empty-state,
+.dashboard-stack-column > .khata-dashboard-panel .empty-state { padding:22px 12px; }
+@media(max-width:1100px) {
+  .payment-breakdown-heading { gap:7px; }
+  .payment-breakdown-value { gap:7px; }
+  .dashboard-top-product { grid-template-columns:28px minmax(0,1fr) minmax(80px,auto);gap:8px; }
+  .dashboard-top-product-value>b { font-size:10px; }
+}
+@media(max-width:900px) {
+  .dashboard-stack-column { gap:12px; }
+  .dashboard-stack-column > .top-selling-panel,
+  .dashboard-stack-column > .khata-dashboard-panel { padding:15px; }
+  .payment-panel { align-self:stretch; }
+}
+@media(max-width:560px) {
+  .payment-total-row { align-items:flex-start;flex-direction:column;gap:8px; }
+  .payment-total-period { max-width:100%;justify-content:flex-start;text-align:left; }
+  .payment-breakdown-heading { align-items:flex-start; }
+  .payment-breakdown-value { flex-wrap:wrap; }
+  .dashboard-top-product { grid-template-columns:28px minmax(0,1fr);align-items:start; }
+  .dashboard-top-product-value { grid-column:2;flex-direction:row;align-items:baseline;justify-content:space-between;text-align:left;gap:8px; }
+  .dashboard-top-product-value>b { text-align:left; }
+  .dashboard-top-product-value>small { text-align:right; }
+  .dashboard-top-product-meter { max-width:none; }
+}
+@media(max-width:360px) {
+  .khata-dashboard-panel .panel-head { gap:8px; }
+  .khata-credit-period { padding:9px; }
+  .payment-breakdown-value>b { font-size:9px; }
+}
+

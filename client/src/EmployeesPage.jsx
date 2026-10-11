@@ -398,7 +398,7 @@ export default function EmployeesPage({ auth, notify, onUnauthorized, currency =
         <button type="button" className={tab === 'payroll' ? 'active' : ''} onClick={() => setTab('payroll')}><Wallet size={16}/>Payroll</button>
         <button type="button" className={tab === 'expenses' ? 'active' : ''} onClick={() => setTab('expenses')}><FileText size={16}/>Expenses<span>{summary?.expenseCount ?? 0}</span></button>
       </div>
-      <span className="employee-period-caption">{friendlyDate(period.from)} — {friendlyDate(period.to)}</span>
+      <span className="employee-period-caption">Monthly salary commitment: {loading ? '—' : money(summary?.monthlyPayroll)} · {friendlyDate(period.from)} — {friendlyDate(period.to)}</span>
     </div>
 
     {tab === 'directory' && <section className="employee-panel">

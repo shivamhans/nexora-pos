@@ -37,6 +37,7 @@ jobs:
           node --check server/src/routes/auth.js
           node --check server/src/routes/items.js
           node --check server/src/routes/sales.js
+          node --check server/src/routes/credit.js
           node --check server/src/routes/categories.js
           node --check server/src/routes/customers.js
           node --check server/src/routes/suppliers.js

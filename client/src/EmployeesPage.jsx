@@ -68,6 +68,8 @@ export default function EmployeesPage({ auth, notify, onUnauthorized, currency =
   const token = auth?.token;
   const notifyRef = useRef(notify);
   notifyRef.current = notify;
+  const onUnauthorizedRef = useRef(onUnauthorized);
+  onUnauthorizedRef.current = onUnauthorized;
   const [periodPreset, setPeriodPreset] = useState('30d');
   const [directory, setDirectory] = useState([]);
   const [summary, setSummary] = useState(null);
@@ -110,9 +112,9 @@ export default function EmployeesPage({ auth, notify, onUnauthorized, currency =
       setSummary(result.summary || null);
     } catch (error) {
       setPageError(error.message || 'Could not load employee records.');
-      if (error.status === 401 && onUnauthorized) onUnauthorized();
+      if (error.status === 401 && onUnauthorizedRef.current) onUnauthorizedRef.current();
     } finally { setLoading(false); }
-  }, [token, period.from, period.to, includeInactive, onUnauthorized, refreshKey]);
+  }, [token, period.from, period.to, includeInactive, refreshKey]);
 
   useEffect(() => { loadDirectory(); }, [loadDirectory]);
 
@@ -124,10 +126,10 @@ export default function EmployeesPage({ auth, notify, onUnauthorized, currency =
       setPayroll(result.payroll || []);
     } catch (error) {
       setPayroll([]);
-      if (error.status === 401 && onUnauthorized) onUnauthorized();
+      if (error.status === 401 && onUnauthorizedRef.current) onUnauthorizedRef.current();
       if (error.status && error.status !== 404) notifyRef.current(error.message || 'Could not load payroll.', 'warning');
     } finally { setPayrollLoading(false); }
-  }, [token, month, onUnauthorized, refreshKey]);
+  }, [token, month, refreshKey]);
 
   const loadExpenses = useCallback(async () => {
     if (!token) return;
@@ -138,10 +140,10 @@ export default function EmployeesPage({ auth, notify, onUnauthorized, currency =
       setExpenses(result.expenses || []);
     } catch (error) {
       setExpenses([]);
-      if (error.status === 401 && onUnauthorized) onUnauthorized();
+      if (error.status === 401 && onUnauthorizedRef.current) onUnauthorizedRef.current();
       if (error.status) notifyRef.current(error.message || 'Could not load employee expenses.', 'warning');
     } finally { setExpensesLoading(false); }
-  }, [token, period.from, period.to, onUnauthorized, refreshKey]);
+  }, [token, period.from, period.to, refreshKey]);
 
   useEffect(() => { loadPayroll(); }, [loadPayroll]);
   useEffect(() => { loadExpenses(); }, [loadExpenses]);

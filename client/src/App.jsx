@@ -139,6 +139,7 @@ function Dashboard({ items, onNavigate, isLive = false, auth, currency = 'INR' }
     initials: String(row.customer || 'Walk-in').split(/\s+/).filter(Boolean).slice(0, 2).map(part => part[0].toUpperCase()).join(''),
     color: 'purple',
   }));
+  const topSellingRows = demo ? [] : (reportData?.topSellingProducts || []);
   const isLow = item => Number(item.stock) > 0 && Number(item.stock) <= Number(item.reorderThreshold ?? 8);
   const isOut = item => Number(item.stock) <= 0;
   const stockAttention = items.filter(item => isLow(item) || isOut(item)).sort((a, b) => Number(a.stock) - Number(b.stock)).slice(0, 4);

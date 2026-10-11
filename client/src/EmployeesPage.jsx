@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertTriangle, ArrowDownRight, ArrowRight, Banknote, BriefcaseBusiness, CalendarDays,
   Check, CheckCircle2, ChevronDown, CircleDollarSign, Clock3, Contact, CreditCard,
@@ -66,6 +66,8 @@ function PayrollStatus({ status }) {
 
 export default function EmployeesPage({ auth, notify, onUnauthorized, currency = 'INR' }) {
   const token = auth?.token;
+  const notifyRef = useRef(notify);
+  notifyRef.current = notify;
   const [periodPreset, setPeriodPreset] = useState('30d');
   const [directory, setDirectory] = useState([]);
   const [summary, setSummary] = useState(null);
@@ -123,9 +125,9 @@ export default function EmployeesPage({ auth, notify, onUnauthorized, currency =
     } catch (error) {
       setPayroll([]);
       if (error.status === 401 && onUnauthorized) onUnauthorized();
-      if (error.status && error.status !== 404) notify(error.message || 'Could not load payroll.', 'warning');
+      if (error.status && error.status !== 404) notifyRef.current(error.message || 'Could not load payroll.', 'warning');
     } finally { setPayrollLoading(false); }
-  }, [token, month, onUnauthorized, notify, refreshKey]);
+  }, [token, month, onUnauthorized, refreshKey]);
 
   const loadExpenses = useCallback(async () => {
     if (!token) return;
@@ -137,9 +139,9 @@ export default function EmployeesPage({ auth, notify, onUnauthorized, currency =
     } catch (error) {
       setExpenses([]);
       if (error.status === 401 && onUnauthorized) onUnauthorized();
-      if (error.status) notify(error.message || 'Could not load employee expenses.', 'warning');
+      if (error.status) notifyRef.current(error.message || 'Could not load employee expenses.', 'warning');
     } finally { setExpensesLoading(false); }
-  }, [token, period.from, period.to, onUnauthorized, notify, refreshKey]);
+  }, [token, period.from, period.to, onUnauthorized, refreshKey]);
 
   useEffect(() => { loadPayroll(); }, [loadPayroll]);
   useEffect(() => { loadExpenses(); }, [loadExpenses]);
@@ -519,7 +521,7 @@ export default function EmployeesPage({ auth, notify, onUnauthorized, currency =
           <button type="button" className={expenseForm.settlementMode === 'COMPANY_PAID' ? 'selected' : ''} onClick={() => setExpenseValue('settlementMode','COMPANY_PAID')}><Wallet size={17}/><span><b>Company paid</b><small>Recorded as an expense; does not reduce salary.</small></span>{expenseForm.settlementMode === 'COMPANY_PAID' && <CheckCircle2 size={16}/>}</button>
           <button type="button" className={expenseForm.settlementMode === 'DEDUCT_NEXT_MONTH' ? 'selected' : ''} onClick={() => setExpenseValue('settlementMode','DEDUCT_NEXT_MONTH')}><TrendingDown size={17}/><span><b>Deduct from salary</b><small>Reduces the next month's salary; remainder rolls forward.</small></span>{expenseForm.settlementMode === 'DEDUCT_NEXT_MONTH' && <CheckCircle2 size={16}/>}</button>
         </div></FormField>
-        {expenseForm.settlementMode === 'COMPANY_PAID' ? <FormField label="Payment method" required><select required value={expenseForm.paymentMode} onChange={event => setExpenseValue('paymentMode', event.target.value)}><option value="CASH">Cash</option><option value="UPI">UPI</option><option value="CARD">Card</option><option value="BANK_TRANSFER">Bank transfer</option><option value="OTHER">Other</option></select></FormField> : <div className="employee-deduction-note"><TrendingDown size={16}/><span>This will be scheduled for <b>{monthLabel((() => {const date=new Date(expenseForm.expenseDate+'T12:00:00');date.setMonth(date.getMonth()+1);date.setDate(1);return ymd(date).slice(0,7);})())}</b> payroll. If deductions exceed the employee's net salary, the unpaid remainder carries to later months.</span></div>}
+        {expenseForm.settlementMode === 'COMPANY_PAID' ? <FormField label="Payment method" required><select required value={expenseForm.paymentMode} onChange={event => setExpenseValue('paymentMode', event.target.value)}><option value="CASH">Cash</option><option value="UPI">UPI</option><option value="CARD">Card</option><option value="BANK_TRANSFER">Bank transfer</option><option value="OTHER">Other</option></select></FormField> : <div className="employee-deduction-note"><TrendingDown size={16}/><span>This will be scheduled for <b>{monthLabel((() => {const date=new Date(expenseForm.expenseDate+'T12:00:00');date.setDate(1);date.setMonth(date.getMonth()+1);return ymd(date).slice(0,7);})())}</b> payroll. If deductions exceed the employee's net salary, the unpaid remainder carries to later months.</span></div>}
       </div>
       <div className="employee-form-footer"><span><ShieldCheck size={14}/> Entries are recorded in the audit log.</span><div><ActionButton type="button" disabled={busy} onClick={() => setExpenseModal(false)}>Cancel</ActionButton><ActionButton type="submit" icon={Check} variant="primary" disabled={busy || !expenseEmployeeId}>{busy ? 'Saving…' : 'Save expense'}</ActionButton></div></div>
     </form></div>}

@@ -267,6 +267,44 @@ async function createReceiptPng(sale, businessName, money, logoData = '') {
       image.src = logoData;
     });
   }
+  // Trim outer white/transparent padding at render time so older Settings logos
+  // gain a useful visual size without requiring the user to upload them again.
+  let logoCrop = null;
+  if (logoImage) {
+    try {
+      const width = logoImage.naturalWidth || logoImage.width;
+      const height = logoImage.naturalHeight || logoImage.height;
+      const sampleScale = Math.min(1, 420 / Math.max(width, height));
+      const sample = document.createElement('canvas');
+      sample.width = Math.max(1, Math.round(width * sampleScale));
+      sample.height = Math.max(1, Math.round(height * sampleScale));
+      const sampleContext = sample.getContext('2d', { willReadFrequently: true });
+      if (sampleContext) {
+        sampleContext.drawImage(logoImage, 0, 0, sample.width, sample.height);
+        const pixels = sampleContext.getImageData(0, 0, sample.width, sample.height).data;
+        let minX = sample.width, minY = sample.height, maxX = -1, maxY = -1;
+        for (let y = 0; y < sample.height; y += 1) {
+          for (let x = 0; x < sample.width; x += 1) {
+            const index = (y * sample.width + x) * 4;
+            const alpha = pixels[index + 3];
+            const nearWhite = pixels[index] >= 246 && pixels[index + 1] >= 246 && pixels[index + 2] >= 246;
+            if (alpha < 24 || nearWhite) continue;
+            minX = Math.min(minX, x); minY = Math.min(minY, y);
+            maxX = Math.max(maxX, x); maxY = Math.max(maxY, y);
+          }
+        }
+        if (maxX >= minX && maxY >= minY) {
+          const pad = Math.ceil(Math.max(sample.width, sample.height) * 0.025);
+          minX = Math.max(0, minX - pad); minY = Math.max(0, minY - pad);
+          maxX = Math.min(sample.width - 1, maxX + pad); maxY = Math.min(sample.height - 1, maxY + pad);
+          const x = Math.floor(minX / sampleScale), y = Math.floor(minY / sampleScale);
+          const right = Math.min(width, Math.ceil((maxX + 1) / sampleScale));
+          const bottom = Math.min(height, Math.ceil((maxY + 1) / sampleScale));
+          if (right > x && bottom > y) logoCrop = { x, y, width: right - x, height: bottom - y };
+        }
+      }
+    } catch { logoCrop = null; }
+  }
   return new Promise((resolve, reject) => {
     try {
       const items = Array.isArray(sale?.items) ? sale.items : [];
@@ -296,21 +334,24 @@ async function createReceiptPng(sale, businessName, money, logoData = '') {
       ctx.beginPath(); ctx.arc(cardX + 830, cardY + 80, 94, 0, Math.PI * 2); ctx.stroke(); ctx.beginPath(); ctx.arc(cardX + 830, cardY + 80, 132, 0, Math.PI * 2); ctx.stroke(); ctx.globalAlpha = 1;
       if (logoImage) {
         ctx.save();
-        roundedRect(ctx, cardX + 42, cardY + 34, 122, 122, 25); ctx.clip();
-        ctx.fillStyle = '#ffffff'; ctx.fillRect(cardX + 42, cardY + 34, 122, 122);
-        const sourceWidth = logoImage.naturalWidth || logoImage.width || 1;
-        const sourceHeight = logoImage.naturalHeight || logoImage.height || 1;
-        const logoScale = Math.min(104 / sourceWidth, 104 / sourceHeight);
+        roundedRect(ctx, cardX + 42, cardY + 34, 204, 116, 23); ctx.clip();
+        ctx.fillStyle = '#ffffff'; ctx.fillRect(cardX + 42, cardY + 34, 204, 116);
+        const sourceWidth = logoCrop?.width || logoImage.naturalWidth || logoImage.width || 1;
+        const sourceHeight = logoCrop?.height || logoImage.naturalHeight || logoImage.height || 1;
+        const logoScale = Math.min(184 / sourceWidth, 88 / sourceHeight);
         const logoWidth = sourceWidth * logoScale;
         const logoHeight = sourceHeight * logoScale;
-        ctx.drawImage(logoImage, cardX + 51 + (104 - logoWidth) / 2, cardY + 43 + (104 - logoHeight) / 2, logoWidth, logoHeight);
+        const logoSourceX = logoCrop?.x || 0;
+        const logoSourceY = logoCrop?.y || 0;
+        ctx.drawImage(logoImage, logoSourceX, logoSourceY, sourceWidth, sourceHeight,
+          cardX + 52 + (184 - logoWidth) / 2, cardY + 48 + (88 - logoHeight) / 2, logoWidth, logoHeight);
         ctx.restore();
       } else {
-        roundedRect(ctx, cardX + 42, cardY + 34, 122, 122, 25); ctx.fillStyle = 'rgba(255,255,255,.16)'; ctx.fill(); ctx.fillStyle = '#ffffff';
-        [[0,0],[1,0],[0,1],[1,1]].forEach(([col,row]) => { roundedRect(ctx, cardX + 66 + col * 35, cardY + 58 + row * 35, 22, 22, 6); ctx.fill(); });
+        roundedRect(ctx, cardX + 42, cardY + 34, 204, 116, 23); ctx.fillStyle = 'rgba(255,255,255,.16)'; ctx.fill(); ctx.fillStyle = '#ffffff';
+        [[0,0],[1,0],[0,1],[1,1]].forEach(([col,row]) => { roundedRect(ctx, cardX + 105 + col * 29, cardY + 58 + row * 29, 19, 19, 5); ctx.fill(); });
       }
-      ctx.textAlign = 'left'; ctx.fillStyle = '#ffffff'; ctx.font = '700 30px Arial, sans-serif'; ctx.fillText(String(businessName || 'Nexora Store').slice(0, 34), cardX + 184, cardY + 78, cardW - 250);
-      ctx.fillStyle = 'rgba(255,255,255,.76)'; ctx.font = '700 13px Arial, sans-serif'; ctx.fillText('OFFICIAL STORE RECEIPT', cardX + 184, cardY + 111);
+      ctx.textAlign = 'left'; ctx.fillStyle = '#ffffff'; ctx.font = '700 30px Arial, sans-serif'; ctx.fillText(String(businessName || 'Nexora Store').slice(0, 34), cardX + 270, cardY + 78, cardW - 320);
+      ctx.fillStyle = 'rgba(255,255,255,.76)'; ctx.font = '700 13px Arial, sans-serif'; ctx.fillText('OFFICIAL STORE RECEIPT', cardX + 270, cardY + 111);
       ctx.font = '700 38px Arial, sans-serif'; ctx.fillStyle = '#ffffff'; ctx.fillText(sale?.method === 'Credit' ? 'Khata sale recorded' : 'Payment confirmed', cardX + 42, cardY + 178, cardW - 84);
       ctx.font = '500 18px Arial, sans-serif'; ctx.fillStyle = 'rgba(255,255,255,.82)'; ctx.fillText('Thank you for shopping with us.', cardX + 44, cardY + 218);
       roundedRect(ctx, cardX + cardW - 154, cardY + 183, 112, 38, 19); ctx.fillStyle = sale?.method === 'Credit' ? '#fff0d8' : '#d9ffef'; ctx.fill();

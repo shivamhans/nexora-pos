@@ -58,6 +58,21 @@ router.get('/summary', async (req, res, next) => {
         COALESCE(SUM(qty_on_hand * avg_cost),0) AS inventoryCostValue
       FROM items WHERE is_active = 1
     `);
+    const [topSellingRows] = await pool.execute(`
+      SELECT si.item_id AS itemId, si.item_name_snapshot AS name, si.sku_snapshot AS sku,
+        SUM(si.quantity) AS unitsSold, COALESCE(SUM(si.quantity * si.unit_price_actual), 0) AS salesAmount
+      FROM sale_items si JOIN sales s ON s.id = si.sale_id
+      WHERE s.status = 'COMPLETED' AND DATE(s.completed_at) BETWEEN ? AND ?
+      GROUP BY si.item_id, si.item_name_snapshot, si.sku_snapshot
+      ORDER BY unitsSold DESC, salesAmount DESC LIMIT 5
+    `, [from, to]);
+    const [khataRows] = await pool.execute(`
+      SELECT COALESCE(SUM(balance), 0) AS outstandingTotal, COUNT(*) AS customersOwing
+      FROM (
+        SELECT customer_id, SUM(CASE WHEN entry_type = 'CREDIT_SALE' THEN amount ELSE -amount END) AS balance
+        FROM customer_credit_ledger GROUP BY customer_id
+      ) balances WHERE balance > 0
+    `);
     const [queueRows] = await pool.execute("SELECT COUNT(*) AS openReconciliations FROM negative_stock_reconciliation WHERE status = 'OPEN'");
     const [dailySales] = await pool.execute(`
       SELECT DATE(completed_at) AS day, COALESCE(SUM(total_amount),0) AS amount

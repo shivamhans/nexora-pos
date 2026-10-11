@@ -13,9 +13,10 @@ const canViewKhata = user => user?.role === 'Admin' || (
 
 async function getCustomerBalance(connection, customerId, lockCustomer = false) {
   if (lockCustomer) {
-    const [customers] = await connection.execute('SELECT id, name, is_active AS isActive FROM customers WHERE id = ? FOR UPDATE', [customerId]);
+    // Lock the customer row to serialize balance-changing operations. Repayment remains
+    // allowed for inactive customers so an existing debt can still be settled.
+    const [customers] = await connection.execute('SELECT id FROM customers WHERE id = ? FOR UPDATE', [customerId]);
     if (!customers[0]) return { error: 'Customer not found.' };
-    if (!Number(customers[0].isActive)) return { error: 'Inactive customers cannot use Khata.' };
   }
   const [rows] = await connection.execute(`
     SELECT COALESCE(SUM(CASE WHEN entry_type = 'CREDIT_SALE' THEN amount ELSE -amount END), 0) AS balance

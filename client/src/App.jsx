@@ -262,8 +262,8 @@ async function createReceiptPng(sale, businessName, money, logoData = '') {
       ctx.fillStyle = 'rgba(255,255,255,.72)'; ctx.font = '600 13px Arial, sans-serif'; ctx.fillText('PAYMENT RECEIPT', cardX + 128, cardY + 86);
       ctx.font = '700 39px Arial, sans-serif'; ctx.fillStyle = '#ffffff'; ctx.fillText(sale?.method === 'Credit' ? 'Khata sale recorded' : 'Payment confirmed', cardX + 42, cardY + 157, cardW - 84);
       ctx.font = '500 18px Arial, sans-serif'; ctx.fillStyle = 'rgba(255,255,255,.82)'; ctx.fillText('Thank you for shopping with us.', cardX + 44, cardY + 200);
-      roundedRect(ctx, cardX + cardW - 154, cardY + 183, 112, 38, 19); ctx.fillStyle = '#d9ffef'; ctx.fill();
-      ctx.fillStyle = '#17674f'; ctx.font = '700 14px Arial, sans-serif'; ctx.textAlign = 'center'; ctx.fillText('✓ PAID', cardX + cardW - 98, cardY + 207); ctx.restore();
+      roundedRect(ctx, cardX + cardW - 154, cardY + 183, 112, 38, 19); ctx.fillStyle = sale?.method === 'Credit' ? '#fff0d8' : '#d9ffef'; ctx.fill();
+      ctx.fillStyle = sale?.method === 'Credit' ? '#925b0a' : '#17674f'; ctx.font = '700 14px Arial, sans-serif'; ctx.textAlign = 'center'; ctx.fillText(sale?.method === 'Credit' ? 'ON KHATA' : '✓ PAID', cardX + cardW - 98, cardY + 207); ctx.restore();
       ctx.textAlign = 'left'; ctx.fillStyle = '#82799b'; ctx.font = '600 15px Arial, sans-serif'; ctx.fillText('RECEIPT NUMBER', cardX + 42, 321);
       ctx.fillStyle = '#25203d'; ctx.font = '700 23px Arial, sans-serif'; ctx.fillText(String(sale?.id || '—').slice(0, 35), cardX + 42, 355, 520);
       ctx.fillStyle = '#82799b'; ctx.font = '600 15px Arial, sans-serif'; ctx.fillText('DATE & TIME', cardX + 590, 321);
@@ -284,7 +284,7 @@ async function createReceiptPng(sale, businessName, money, logoData = '') {
         ctx.textAlign = 'right'; ctx.fillStyle = strong ? '#292440' : '#5a536f'; ctx.font = (strong ? '700 20px' : '600 17px') + ' Arial, sans-serif'; ctx.fillText(value, cardX + cardW - 42, y); ctx.textAlign = 'left';
       };
       drawSummary('Subtotal', money(subtotal), summaryStart); if (discount > 0) drawSummary('Discount', '−' + money(discount), summaryStart + 40);
-      roundedRect(ctx, cardX + 28, totalCardY, cardW - 56, 66, 18); ctx.fillStyle = '#f1edff'; ctx.fill(); drawSummary('TOTAL PAID', money(sale?.amount || 0), totalCardY + 41, true);
+      roundedRect(ctx, cardX + 28, totalCardY, cardW - 56, 66, 18); ctx.fillStyle = '#f1edff'; ctx.fill(); drawSummary(sale?.method === 'Credit' ? 'TOTAL ON KHATA' : 'TOTAL PAID', money(sale?.amount || 0), totalCardY + 41, true);
       drawSummary('Payment method', String(sale?.method || '—'), paymentY, false); if (sale?.method === 'Cash') drawSummary('Change due', money(sale?.change || 0), paymentY + 34, false);
       ctx.strokeStyle = '#e6e0f3'; ctx.setLineDash([6, 6]); ctx.beginPath(); ctx.moveTo(cardX + 42, footerY - 22); ctx.lineTo(cardX + cardW - 42, footerY - 22); ctx.stroke(); ctx.setLineDash([]);
       ctx.textAlign = 'center'; ctx.fillStyle = '#6f5bd8'; ctx.font = '700 19px Arial, sans-serif'; ctx.fillText('THANK YOU FOR YOUR PURCHASE ✦', width / 2, footerY + 10);

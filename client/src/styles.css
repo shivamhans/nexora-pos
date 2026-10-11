@@ -356,3 +356,194 @@ select{color-scheme:light}
 .khata-dashboard-total{font-size:28px;font-weight:800;letter-spacing:-.045em;color:var(--text);margin:6px 0 3px}
 .khata-dashboard-meta{font-size:11px;color:var(--muted);margin-bottom:15px}
 @media(max-width:560px){.business-logo-upload{gap:10px}.business-logo-preview{width:72px;height:72px;flex-basis:72px}.dashboard-top-product{grid-template-columns:28px minmax(0,1fr) auto;gap:8px}.dashboard-top-rank{width:28px;height:28px}}
+
+/* Dashboard layout refinement: let content determine panel height and reflow before it gets cramped. */
+.dashboard-page {}
+.stats-grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 228px), 1fr));
+  align-items: stretch;
+}
+.stat-card {
+  box-sizing: border-box;
+  min-width: 0;
+  height: 100%;
+}
+.stat-value {
+  max-width: 100%;
+  font-size: clamp(15px, 1.45vw, 23px);
+  line-height: 1.2;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  font-variant-numeric: tabular-nums;
+}
+.dashboard-main-grid,
+.dashboard-bottom-grid {
+  grid-template-columns: minmax(0, 1.85fr) minmax(0, 1fr);
+  align-items: stretch;
+}
+.dashboard-main-grid > .panel,
+.dashboard-bottom-grid > .panel {
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
+}
+.panel-head > div {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.panel-head h2,
+.panel-head p {
+  overflow-wrap: anywhere;
+}
+.chart-panel,
+.payment-panel,
+.recent-panel,
+.low-stock-panel,
+.top-selling-panel,
+.khata-dashboard-panel {
+  min-width: 0;
+  box-sizing: border-box;
+}
+.sales-chart,
+.donut-wrap {
+  min-width: 0;
+}
+.chart-footer > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.recent-panel .table-wrap {
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
+}
+.recent-panel table {
+  width: 100%;
+}
+.dashboard-top-product {
+  grid-template-columns: 30px minmax(0, 1fr) minmax(90px, auto);
+  min-width: 0;
+  gap: 10px;
+}
+.dashboard-top-product-copy,
+.dashboard-top-product-value {
+  min-width: 0;
+  max-width: 100%;
+}
+.dashboard-top-product-copy b {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  line-height: 1.4;
+}
+.dashboard-top-product-copy small,
+.dashboard-top-product-value b,
+.dashboard-top-product-value small {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+.dashboard-top-product-value {
+  text-align: right;
+}
+.khata-dashboard-panel {
+  align-self: start;
+  width: 100%;
+  height: auto;
+}
+.khata-dashboard-total {
+  max-width: 100%;
+  font-size: clamp(22px, 2.1vw, 30px);
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+  font-variant-numeric: tabular-nums;
+}
+.khata-dashboard-meta {
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+.stock-item-copy {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.stock-item-copy b,
+.stock-item-copy span {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+.stock-item-right {
+  min-width: 0;
+  flex: 0 0 auto;
+  text-align: right;
+}
+.stock-item-right b,
+.stock-item-right span {
+  overflow-wrap: anywhere;
+}
+@media (max-width: 1024px) {
+  .stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .dashboard-main-grid,
+  .dashboard-bottom-grid {
+    grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+    gap: 14px;
+  }
+  .dashboard-top-product {
+    grid-template-columns: 28px minmax(0, 1fr) minmax(78px, auto);
+    gap: 8px;
+  }
+}
+@media (max-width: 900px) {
+  .dashboard-main-grid,
+  .dashboard-bottom-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+  }
+  .khata-dashboard-panel {
+    align-self: stretch;
+  }
+  .dashboard-bottom-grid > .panel {
+    width: 100%;
+  }
+}
+@media (max-width: 560px) {
+  .stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 9px;
+  }
+  .stat-card {
+    padding: 12px;
+  }
+  .stat-value {
+    font-size: clamp(14px, 4vw, 18px);
+  }
+  .dashboard-top-product {
+    grid-template-columns: 28px minmax(0, 1fr);
+    align-items: start;
+    gap: 8px;
+    padding: 11px 0;
+  }
+  .dashboard-top-product-value {
+    grid-column: 2;
+    flex-direction: row;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+    text-align: left;
+  }
+  .dashboard-top-product-value b {
+    flex-shrink: 0;
+  }
+  .dashboard-top-product-value small {
+    text-align: right;
+  }
+  .khata-dashboard-panel {
+    padding: 15px;
+  }
+}
+@media (max-width: 360px) {
+  .stats-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+

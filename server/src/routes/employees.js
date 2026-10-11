@@ -256,7 +256,7 @@ router.post('/', async (req, res, next) => {
       next(error);
     } finally { connection.release(); }
   } catch (error) {
-    res.status(error.status || 400).json({ error: error.message || 'Employee could not be saved.' });
+    res.status(error.status || 500).json({ error: error.message || 'Employee could not be saved.' });
   }
 });
 
@@ -294,7 +294,7 @@ router.patch('/:id', async (req, res, next) => {
       next(error);
     } finally { connection.release(); }
   } catch (error) {
-    res.status(error.status || 400).json({ error: error.message || 'Employee could not be updated.' });
+    res.status(error.status || 500).json({ error: error.message || 'Employee could not be updated.' });
   }
 });
 

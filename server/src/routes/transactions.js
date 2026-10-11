@@ -16,7 +16,7 @@ router.get('/', async (req, res, next) => {
         s.tax_total AS taxTotal, s.total_amount AS totalAmount, s.payment_status AS paymentStatus,
         s.negative_stock_override AS negativeStockOverride, DATE_FORMAT(s.completed_at, '%Y-%m-%dT%H:%i:%s') AS completedAt,
         c.id AS customerId, COALESCE(c.name, 'Walk-in Customer') AS customer,
-        u.name AS cashier, p.method AS paymentMethod, p.amount_received AS amountReceived, p.change_due AS changeDue,
+        u.name AS cashier, CASE WHEN s.payment_status = 'CREDIT' THEN 'CREDIT' ELSE p.method END AS paymentMethod, p.amount_received AS amountReceived, p.change_due AS changeDue,
         (SELECT COUNT(*) FROM sale_items si WHERE si.sale_id = s.id) AS lineCount,
         (SELECT COALESCE(SUM(si.provisional_cost),0) FROM sale_items si WHERE si.sale_id = s.id) AS provisionalCostLineCount
       FROM sales s

@@ -1,6 +1,6 @@
 export const ALL_MODULES = [
   'Dashboard', 'Point of Sale', 'Transactions', 'Inventory', 'Items', 'Categories',
-  'Purchases', 'Suppliers', 'Customers', 'Staff & Roles', 'Reports', 'Returns & Refunds', 'Settings',
+  'Purchases', 'Suppliers', 'Customers', 'Staff & Roles', 'Employees', 'Reports', 'Returns & Refunds', 'Settings',
 ];
 
 export const ROLE_MODULES = {

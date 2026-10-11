@@ -910,3 +910,63 @@ select{color-scheme:light}
   .dashboard-main-grid,
   .dashboard-bottom-grid { grid-template-columns:minmax(0,1fr); }
 }
+
+/* Customer business classification, fourth summary card, and prominent receipt branding. */
+.live-metrics.live-metrics-customers {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+.customer-primary-line {
+  display:flex;
+  align-items:center;
+  gap:8px;
+  flex-wrap:wrap;
+  min-width:0;
+}
+.customer-primary-line>b {
+  max-width:100%;
+  overflow-wrap:anywhere;
+}
+.customer-business-tag {
+  display:inline-flex;
+  align-items:center;
+  padding:4px 6px;
+  border:1px solid rgba(117,99,232,.2);
+  border-radius:6px;
+  background:var(--violet-soft);
+  color:var(--violet);
+  font-size:7px;
+  font-weight:850;
+  letter-spacing:.55px;
+  line-height:1;
+}
+.receipt-brand {
+  align-items:center;
+  gap:14px;
+  padding-bottom:18px;
+}
+.receipt-business-logo {
+  display:block;
+  flex:0 0 82px;
+  width:82px;
+  height:82px;
+  padding:7px;
+  object-fit:contain;
+  border:1px solid #e9e3ff;
+  border-radius:17px;
+  background:#fff;
+  box-shadow:0 5px 16px rgba(43,27,100,.09);
+}
+.receipt-brand>div:last-child { min-width:0;gap:5px; }
+.receipt-brand b { font-size:14px;line-height:1.25;letter-spacing:.7px;overflow-wrap:anywhere; }
+.receipt-brand small { font-size:8px;letter-spacing:1.2px;line-height:1.4; }
+@media(max-width:1100px) {
+  .live-metrics.live-metrics-customers { grid-template-columns:repeat(2,minmax(0,1fr)); }
+}
+@media(max-width:560px) {
+  .live-metrics.live-metrics-customers { grid-template-columns:repeat(2,minmax(0,1fr));gap:8px; }
+  .live-metrics-customers .live-metric-card { min-width:0; }
+  .live-metrics-customers .live-metric-card strong { overflow-wrap:anywhere;font-size:clamp(14px,3.5vw,19px); }
+  .receipt-business-logo { flex-basis:68px;width:68px;height:68px;padding:5px;border-radius:13px; }
+  .receipt-brand { gap:11px; }
+}
+

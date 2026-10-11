@@ -83,7 +83,7 @@ router.post('/', async (req, res, next) => {
   try {
     await connection.beginTransaction();
     const [sales] = await connection.execute(`
-      SELECT id, receipt_no AS receiptNo, customer_id AS customerId, status, subtotal,
+      SELECT id, receipt_no AS receiptNo, customer_id AS customerId, status, payment_status AS paymentStatus, subtotal,
         discount_total AS discountTotal, tax_total AS taxTotal, total_amount AS totalAmount
       FROM sales
       WHERE (? > 0 AND id = ?) OR (? <> '' AND receipt_no = ?)
@@ -91,6 +91,13 @@ router.post('/', async (req, res, next) => {
     `, [validId(saleIdInput) ? saleIdInput : 0, validId(saleIdInput) ? saleIdInput : 0, saleInput, saleInput]);
     const sale = sales[0];
     if (!sale || sale.status !== 'COMPLETED') { await connection.rollback(); return res.status(404).json({ error: 'A completed sale matching that receipt could not be found.' }); }
+    if (sale.paymentStatus === 'CREDIT' && sale.customerId != null) {
+      const [balanceRows] = await connection.execute(`SELECT COALESCE(SUM(CASE WHEN entry_type = 'CREDIT_SALE' THEN amount ELSE -amount END), 0) AS balance FROM customer_credit_ledger WHERE customer_id = ?`, [sale.customerId]);
+      if (Number(balanceRows[0]?.balance || 0) > 0) {
+        await connection.rollback();
+        return res.status(409).json({ error: 'This customer still has an outstanding Khata balance. Settle the customer account before using the standard cash/UPI/card refund workflow; Khata return adjustments are not implemented yet.' });
+      }
+    }
 
     const [soldRows] = await connection.execute(`
       SELECT id AS saleItemId, item_id AS itemId, item_name_snapshot AS itemName, sku_snapshot AS sku,

@@ -182,6 +182,12 @@ function Dashboard({ items, onNavigate, isLive = false, auth, currency = 'INR' }
         <div className="panel-head"><div><h2>Top-selling products</h2><p>Products with the most units sold in this reporting period.</p></div><TrendingUp size={18}/></div>
         {!isLive ? <EmptyState icon={Package} title="Live data unavailable" text="Sign in to view your saved top-selling products."/> : loading ? <EmptyState icon={TrendingUp} title="Loading top sellers" text="Calculating units sold from completed sales."/> : reportError ? unavailable('Correct the database issue above, then retry.') : topSellingRows.length ? <div className="dashboard-top-products">{topSellingRows.map((row,index)=><div className="dashboard-top-product" key={row.itemId || row.name}><span className="dashboard-top-rank">{index+1}</span><div className="dashboard-top-product-copy"><b>{row.name}</b><small>{row.sku || 'No SKU'}</small></div><div className="dashboard-top-product-value"><b>{Number(row.unitsSold || 0).toLocaleString('en-IN')} sold</b><small>{formatAmount(row.salesAmount)}</small></div></div>)}</div> : <EmptyState icon={Package} title="No products sold yet" text="Completed sale lines will appear here once products are sold."/>}
       </section>
+      <section className="panel khata-dashboard-panel">
+        <div className="panel-head"><div><h2>Customer Khata</h2><p>Outstanding credit across registered customers.</p></div><BookOpen size={19} color="var(--violet)"/></div>
+        <div className="khata-dashboard-total">{demo || loading || !reportData ? '—' : formatAmount(summary?.khataOutstanding || 0)}</div>
+        <div className="khata-dashboard-meta">{demo ? 'Sign in to view saved Khata balances.' : loading || !reportData ? 'Loading customer balances…' : Number(summary?.customersOwing || 0) === 0 ? 'No customers currently owe a balance.' : String(summary.customersOwing) + ' registered customer' + (Number(summary.customersOwing) === 1 ? '' : 's') + ' with an outstanding balance.'}</div>
+        <Button className="full-width" onClick={() => onNavigate('Customers')}>View customer balances <ArrowRight size={15}/></Button>
+      </section>
     </div>
   </>;
 }

@@ -335,7 +335,11 @@ async function createReceiptPng(sale, businessName, money, logoData = '') {
       if (logoImage) {
         ctx.save();
         roundedRect(ctx, cardX + 42, cardY + 34, 204, 116, 23); ctx.clip();
-        ctx.fillStyle = '#ffffff'; ctx.fillRect(cardX + 42, cardY + 34, 204, 116);
+        // Use a subtle glass treatment instead of an opaque white tile so a
+        // transparent logo remains transparent against the receipt's purple header.
+        roundedRect(ctx, cardX + 42, cardY + 34, 204, 116, 23);
+        ctx.fillStyle = 'rgba(255,255,255,.10)'; ctx.fill();
+        ctx.strokeStyle = 'rgba(255,255,255,.28)'; ctx.lineWidth = 1; ctx.stroke();
         const sourceWidth = logoCrop?.width || logoImage.naturalWidth || logoImage.width || 1;
         const sourceHeight = logoCrop?.height || logoImage.naturalHeight || logoImage.height || 1;
         const logoScale = Math.min(184 / sourceWidth, 88 / sourceHeight);

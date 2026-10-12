@@ -73,10 +73,21 @@ router.patch('/me', requireAuth, async (req, res, next) => {
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
-    const [rows] = await connection.execute(
-      'SELECT id, name, email, phone, password_hash AS passwordHash, role, permissions_json AS permissionsJson, is_active AS isActive, created_at AS createdAt, updated_at AS updatedAt FROM users WHERE id = ? FOR UPDATE',
-      [req.user.sub]
-    );
+    let rows;
+    let hasPhoneColumn = true;
+    try {
+      [rows] = await connection.execute(
+        'SELECT id, name, email, phone, password_hash AS passwordHash, role, permissions_json AS permissionsJson, is_active AS isActive, created_at AS createdAt, updated_at AS updatedAt FROM users WHERE id = ? FOR UPDATE',
+        [req.user.sub]
+      );
+    } catch (error) {
+      if (error.code !== 'ER_BAD_FIELD_ERROR' || !String(error.message || '').toLowerCase().includes('phone')) throw error;
+      hasPhoneColumn = false;
+      [rows] = await connection.execute(
+        'SELECT id, name, email, NULL AS phone, password_hash AS passwordHash, role, permissions_json AS permissionsJson, is_active AS isActive, created_at AS createdAt, updated_at AS updatedAt FROM users WHERE id = ? FOR UPDATE',
+        [req.user.sub]
+      );
+    }
     const before = rows[0];
     if (!before || !Boolean(Number(before.isActive))) {
       await connection.rollback();
@@ -92,7 +103,11 @@ router.patch('/me', requireAuth, async (req, res, next) => {
     const values = [];
     if (name !== undefined) { fields.push('name = ?'); values.push(name); }
     if (email !== undefined) { fields.push('email = ?'); values.push(email); }
-    if (phone !== undefined) { fields.push('phone = ?'); values.push(phone || null); }
+    if (phone !== undefined && hasPhoneColumn) { fields.push('phone = ?'); values.push(phone || null); }
+    if (phone !== undefined && !hasPhoneColumn && fields.length === 0 && !hasPasswordFields) {
+      await connection.rollback();
+      return res.status(409).json({ error: 'Phone saving needs the profile database update. Run the updated database/ritvan-pos-all-in-one.sql against this database, then try again.' });
+    }
     if (hasPasswordFields) {
       fields.push('password_hash = ?');
       values.push(await bcrypt.hash(newPassword, 12));
@@ -100,7 +115,9 @@ router.patch('/me', requireAuth, async (req, res, next) => {
 
     await connection.execute('UPDATE users SET ' + fields.join(', ') + ' WHERE id = ?', [...values, before.id]);
     const [afterRows] = await connection.execute(
-      'SELECT id, name, email, phone, role, permissions_json AS permissionsJson, is_active AS isActive, created_at AS createdAt, updated_at AS updatedAt FROM users WHERE id = ?',
+      hasPhoneColumn
+        ? 'SELECT id, name, email, phone, role, permissions_json AS permissionsJson, is_active AS isActive, created_at AS createdAt, updated_at AS updatedAt FROM users WHERE id = ?'
+        : 'SELECT id, name, email, NULL AS phone, role, permissions_json AS permissionsJson, is_active AS isActive, created_at AS createdAt, updated_at AS updatedAt FROM users WHERE id = ?',
       [before.id]
     );
     const after = afterRows[0];
@@ -118,7 +135,11 @@ router.patch('/me', requireAuth, async (req, res, next) => {
       process.env.JWT_SECRET,
       { expiresIn: process.env.JWT_EXPIRES_IN || '8h' }
     );
-    res.json({ user, token, message: hasPasswordFields ? 'Profile and password updated.' : 'Profile updated.' });
+    res.json({
+      user, token,
+      message: hasPasswordFields ? 'Profile and password updated.' : 'Profile updated.',
+      ...(phone !== undefined && !hasPhoneColumn ? { warning: 'Name and email were saved, but the phone number was not saved because users.phone is missing. Run the updated database/ritvan-pos-all-in-one.sql to enable phone storage.' } : {}),
+    });
   } catch (error) {
     await connection.rollback();
     if (error.code === 'ER_DUP_ENTRY') return res.status(409).json({ error: 'An account with that email address already exists.' });
@@ -133,7 +154,14 @@ router.post('/login', async (req, res, next) => {
     const email = String(req.body?.email || '').trim().toLowerCase();
     const password = String(req.body?.password || '');
     if (!email || !password) return res.status(400).json({ error: 'Email and password are required.' });
-    const [rows] = await pool.execute('SELECT id, name, email, phone, password_hash, role, is_active, permissions_json AS permissionsJson FROM users WHERE email = ? LIMIT 1', [email]);
+    let rows;
+    try {
+      [rows] = await pool.execute('SELECT id, name, email, phone, password_hash, role, is_active, permissions_json AS permissionsJson FROM users WHERE email = ? LIMIT 1', [email]);
+    } catch (error) {
+      // Older customer databases may not have the optional profile phone column yet.
+      if (error.code !== 'ER_BAD_FIELD_ERROR' || !String(error.message || '').toLowerCase().includes('phone')) throw error;
+      [rows] = await pool.execute('SELECT id, name, email, NULL AS phone, password_hash, role, is_active, permissions_json AS permissionsJson FROM users WHERE email = ? LIMIT 1', [email]);
+    }
     const user = rows[0];
     if (!user || !user.is_active || !(await bcrypt.compare(password, user.password_hash))) {
       return res.status(401).json({ error: 'Email or password is incorrect.' });

@@ -12,7 +12,7 @@ const initialForm = user => ({
 });
 
 function initialsFor(name) {
-  return String(name || '?').trim().split(/\\s+/).filter(Boolean).slice(0, 2)
+  return String(name || '?').trim().split(/\s+/).filter(Boolean).slice(0, 2)
     .map(part => part.charAt(0).toUpperCase()).join('') || '?';
 }
 
@@ -86,8 +86,8 @@ export default function AccountProfilePage({ auth, notify, onUnauthorized, onPro
   const saveProfile = async event => {
     event.preventDefault();
     if (!form.name.trim()) { setProfileError('Enter your full name.'); return; }
-    if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(form.email.trim())) { setProfileError('Enter a valid email address.'); return; }
-    if (form.phone.trim() && (!/^[+0-9().\\s-]{7,24}$/.test(form.phone.trim()) || form.phone.replace(/\\D/g, '').length < 7)) {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) { setProfileError('Enter a valid email address.'); return; }
+    if (form.phone.trim() && (!/^[+0-9().\s-]{7,24}$/.test(form.phone.trim()) || form.phone.replace(/\D/g, '').length < 7)) {
       setProfileError('Enter a valid phone number or leave it blank.');
       return;
     }

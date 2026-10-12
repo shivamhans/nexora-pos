@@ -13,10 +13,10 @@ export async function requireAuth(req, res, next) {
     return res.status(401).json({ error: 'Session is invalid or expired.' });
   }
   try {
-    const [rows] = await pool.execute('SELECT id, name, email, role, is_active AS isActive, permissions_json AS permissionsJson FROM users WHERE id = ? LIMIT 1', [claims.sub]);
+    const [rows] = await pool.execute('SELECT id, name, email, phone, role, is_active AS isActive, permissions_json AS permissionsJson, created_at AS createdAt, updated_at AS updatedAt FROM users WHERE id = ? LIMIT 1', [claims.sub]);
     const user = rows[0];
     if (!user || !Boolean(Number(user.isActive))) return res.status(401).json({ error: 'This account is inactive or no longer exists. Sign in again or contact an Admin.' });
-    req.user = { ...claims, sub: user.id, name: user.name, email: user.email, role: user.role, permissions: effectivePermissions(user.role, user.permissionsJson) };
+    req.user = { ...claims, sub: user.id, name: user.name, email: user.email, phone: user.phone || '', role: user.role, permissions: effectivePermissions(user.role, user.permissionsJson), createdAt: user.createdAt, updatedAt: user.updatedAt };
     next();
   } catch (error) { next(error); }
 }

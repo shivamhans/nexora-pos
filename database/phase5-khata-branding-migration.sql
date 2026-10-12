@@ -1,20 +1,20 @@
--- Nexora POS Phase 5: store logo and customer Khata / credit ledger.
--- Run against nexora_pos_cg after backing up the database. This migration is repeatable
+-- Ritvan POS Phase 5: store logo and customer Khata / credit ledger.
+-- Run against ritvan_pos after backing up the database. This migration is repeatable
 -- and never drops or rewrites existing sale, customer, payment, or stock records.
-USE nexora_pos_cg;
+USE ritvan_pos;
 
-SET @nexora_has_logo_data = (
+SET @ritvan_has_logo_data = (
   SELECT COUNT(*) FROM information_schema.columns
   WHERE table_schema = DATABASE() AND table_name = 'business_settings' AND column_name = 'logo_data'
 );
-SET @nexora_logo_sql = IF(
-  @nexora_has_logo_data = 0,
+SET @ritvan_logo_sql = IF(
+  @ritvan_has_logo_data = 0,
   'ALTER TABLE business_settings ADD COLUMN logo_data MEDIUMTEXT NULL AFTER receipt_footer',
   'SELECT ''business_settings.logo_data already exists'' AS migration_status'
 );
-PREPARE nexora_logo_stmt FROM @nexora_logo_sql;
-EXECUTE nexora_logo_stmt;
-DEALLOCATE PREPARE nexora_logo_stmt;
+PREPARE ritvan_logo_stmt FROM @ritvan_logo_sql;
+EXECUTE ritvan_logo_stmt;
+DEALLOCATE PREPARE ritvan_logo_stmt;
 
 ALTER TABLE sales MODIFY COLUMN payment_status ENUM('PAID','CREDIT','VOID') NOT NULL DEFAULT 'PAID';
 

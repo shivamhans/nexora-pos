@@ -1327,6 +1327,11 @@ select{color-scheme:light}
 /* My Profile workspace: personal details and account security. */
 .profile-row-button {
   width:100%;
+  min-width:0;
+  border:0;
+  background:transparent;
+  color:var(--text);
+  padding:14px 4px 0;
   text-align:left;
   font:inherit;
   cursor:pointer;

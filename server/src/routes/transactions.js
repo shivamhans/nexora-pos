@@ -16,13 +16,17 @@ router.get('/', async (req, res, next) => {
         s.tax_total AS taxTotal, s.total_amount AS totalAmount, s.payment_status AS paymentStatus,
         s.negative_stock_override AS negativeStockOverride, DATE_FORMAT(s.completed_at, '%Y-%m-%dT%H:%i:%s') AS completedAt,
         c.id AS customerId, COALESCE(c.name, 'Walk-in Customer') AS customer,
-        u.name AS cashier, CASE WHEN s.payment_status = 'CREDIT' THEN 'CREDIT' ELSE p.method END AS paymentMethod, p.amount_received AS amountReceived, p.change_due AS changeDue,
+        u.name AS cashier,
+        CASE WHEN s.payment_status = 'CREDIT' THEN 'CREDIT'
+          WHEN (SELECT COUNT(DISTINCT p2.method) FROM payments p2 WHERE p2.sale_id = s.id) > 1 THEN 'SPLIT'
+          ELSE (SELECT MAX(p2.method) FROM payments p2 WHERE p2.sale_id = s.id) END AS paymentMethod,
+        (SELECT COALESCE(SUM(p2.amount_received),0) FROM payments p2 WHERE p2.sale_id = s.id) AS amountReceived,
+        (SELECT COALESCE(SUM(p2.change_due),0) FROM payments p2 WHERE p2.sale_id = s.id) AS changeDue,
         (SELECT COUNT(*) FROM sale_items si WHERE si.sale_id = s.id) AS lineCount,
         (SELECT COALESCE(SUM(si.provisional_cost),0) FROM sale_items si WHERE si.sale_id = s.id) AS provisionalCostLineCount
       FROM sales s
       LEFT JOIN customers c ON c.id = s.customer_id
       JOIN users u ON u.id = s.cashier_id
-      LEFT JOIN payments p ON p.sale_id = s.id
       WHERE (? = '' OR s.receipt_no LIKE ? OR COALESCE(c.name,'Walk-in Customer') LIKE ? OR u.name LIKE ? OR s.status LIKE ?)
       ORDER BY s.completed_at DESC, s.id DESC LIMIT ? OFFSET ?
     `, [q, `%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`, limit, offset]);

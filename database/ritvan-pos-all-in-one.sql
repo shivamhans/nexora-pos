@@ -63,7 +63,7 @@ SET @ritvan_has_users_phone = (
 SET @ritvan_users_phone_sql = IF(
   @ritvan_has_users_phone = 0,
   'ALTER TABLE users ADD COLUMN phone VARCHAR(24) NULL AFTER email',
-  'SELECT ' + CHAR(39) + 'users.phone already exists' + CHAR(39) + ' AS migration_status'
+  CONCAT('SELECT ', CHAR(39), 'users.phone already exists', CHAR(39), ' AS migration_status')
 );
 PREPARE ritvan_users_phone_stmt FROM @ritvan_users_phone_sql;
 EXECUTE ritvan_users_phone_stmt;

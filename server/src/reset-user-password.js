@@ -13,7 +13,7 @@ try {
   const [rows] = await pool.execute('SELECT id, email, role FROM users WHERE email = ? LIMIT 1', [email]);
   const user = rows[0];
   if (!user) {
-    console.error('No Nexora account exists for that email. Create the first Admin with src/seed-admin.js.');
+    console.error('No Ritvan account exists for that email. Create the first Admin with src/seed-admin.js.');
     process.exitCode = 1;
   } else {
     const hash = await bcrypt.hash(String(password), 12);

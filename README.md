@@ -1,8 +1,8 @@
-# Nexora POS
+# Ritvan POS
 
-Nexora POS is a desktop-first point-of-sale and inventory system built with React, Vite, Tailwind CSS, Express, and local MySQL.
+Ritvan POS is a desktop-first point-of-sale and inventory system built with React, Vite, Tailwind CSS, Express, and local MySQL.
 
-## Current milestone: Phase 6 — employee directory, payroll and expense tracking
+## Current milestone: Phase 9 — Ritvan POS rebrand and photo polish
 
 The draft feature branch now includes:
 - Premium sign-in, role-aware navigation, same-Wi-Fi LAN support, and a responsive light/dark workspace.
@@ -29,10 +29,10 @@ The draft feature branch now includes:
 - Database-backed reports and dashboard. Gross profit is withheld when provisional costs affect a period; net profit is not reported without expense tracking.
 - GitHub Actions checks the frontend production build and backend JavaScript syntax.
 
-**Phase 6 adds employee/payroll workflows; this feature branch is still not a production-readiness certification.** Tax collection remains disabled until its rate/calculation policy is approved; returns record a manual settlement method but do not transfer funds through a payment gateway. End-to-end, multi-device concurrency, rollback and security testing with your local MySQL setup is still required before real-store use.
+**Phase 9 completes the Ritvan POS rebrand and product-photo presentation; this feature branch is still not a production-readiness certification.** Tax collection remains disabled until its rate/calculation policy is approved; returns record a manual settlement method but do not transfer funds through a payment gateway. End-to-end, multi-device concurrency, rollback and security testing with your local MySQL setup is still required before real-store use.
 
 ## Item identifiers
-When creating an item, the SKU field is optional. If you leave it blank, the API generates a unique `NX-` SKU at save time. If you enter your own SKU, it must be unique. A **SKU (Stock Keeping Unit)** is your internal code for identifying a product or product variant, for example `CHO-050` for a 50 g chocolate bar or `NX-1001` for a general product code. Each distinct item should have its own unique SKU. A barcode is a separate scannable identifier; it does not have to be the same as the SKU. Item creation also supports an optional product photo: select a JPEG, PNG or WebP image (up to 8 MB before resizing). The browser compresses it to a small JPEG and the API stores it in MySQL, so no separate uploads folder is needed.
+When creating an item, the SKU field is optional. If you leave it blank, the API generates a unique `NX-` SKU at save time. If you enter your own SKU, it must be unique. A **SKU (Stock Keeping Unit)** is your internal code for identifying a product or product variant, for example `CHO-050` for a 50 g chocolate bar or `NX-1001` for a general product code. Each distinct item should have its own unique SKU. A barcode is a separate scannable identifier; it does not have to be the same as the SKU. Item creation also supports an optional product photo: select a JPEG, PNG or WebP image (up to 8 MB before resizing). Photos keep their aspect ratio in a consistent, contain-fit frame; transparent PNG/WebP uploads retain transparency, while opaque photos are compressed to JPEG. The API stores the image in MySQL, so no separate uploads folder is needed.
 
 ## Stack
 - Frontend: React + Vite + Tailwind CSS, Lucide, Recharts
@@ -43,6 +43,19 @@ When creating an item, the SKU field is optional. If you leave it blank, the API
 ## Run locally
 Requirements: Node.js 20+ (22 recommended) and MySQL 8+.
 
+### Important: preserve data when switching to `ritvan_pos`
+The current database name is `ritvan_pos`. If your existing data is still in the earlier `nexora_pos_cg` schema, migrate a copy before starting the updated API:
+
+1. Stop the API so no sales are written during the copy.
+2. In MySQL Workbench, choose **Server → Data Export**, select `nexora_pos_cg` and all its tables, choose **Dump Structure and Data**, and export to a self-contained SQL file. Keep the original export as a backup.
+3. Make a **copy** of that export file. In the copy only, change the database name inside its `CREATE DATABASE` and `USE` statements from `nexora_pos_cg` to `ritvan_pos`. Do not replace arbitrary text in table data.
+4. Run the edited copy in MySQL Workbench. It should create/populate `ritvan_pos` with your existing tables and records. If your export did not contain a `CREATE DATABASE` statement, first run `CREATE DATABASE ritvan_pos CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;` and then import the edited copy.
+5. Compare key table row counts (for example `items`, `sales`, `sale_items`, `payments`, `customers`, `employees`) between the old and new schemas. Keep `nexora_pos_cg` unchanged until the app has been verified against `ritvan_pos`.
+
+Then set `DB_NAME=ritvan_pos` in your local `server/.env` (the local file is not overwritten by Git), restart the API, and verify `http://localhost:4001/api/health` reports `"database":"connected"`. Once the new schema is working, run the Phase 9 branding migration below to update only the untouched default business name; a custom name such as your store's name is preserved.
+
+For a brand-new installation, skip the data-copy steps and run `database/schema.sql` as shown below.
+
 ### 1. Update the database schema
 Start MySQL. From the repository root, execute:
 
@@ -50,18 +63,18 @@ Start MySQL. From the repository root, execute:
 mysql -u root -p < database/schema.sql
 ```
 
-Alternatively, execute `database/schema.sql` in MySQL Workbench. It targets `nexora_pos_cg`. You can re-run it after updates: the `CREATE TABLE IF NOT EXISTS` statements preserve existing tables/rows and create the new `negative_stock_reconciliation` and `return_payments` tables if missing. Back up data before applying schema changes to any database with valuable records.
+Alternatively, execute `database/schema.sql` in MySQL Workbench. It targets `ritvan_pos`. You can re-run it after updates: the `CREATE TABLE IF NOT EXISTS` statements preserve existing tables/rows and create the new `negative_stock_reconciliation` and `return_payments` tables if missing. Back up data before applying schema changes to any database with valuable records.
 
 ### 1a. Back up and apply the upgrade migrations in order
-Before changing an existing store database, make a backup of `nexora_pos_cg` in MySQL Workbench (Server → Data Export), and confirm the export completed. **Do not drop or recreate the database.**
+Before changing an existing store database, make a backup of `ritvan_pos` in MySQL Workbench (Server → Data Export), and confirm the export completed. **Do not drop or recreate the database.**
 
 If this installation has not already received the Phase 4 upgrade, open `database/phase4-migration.sql` from this branch in MySQL Workbench and execute the whole script first. It adds `items.image_data` and `users.permissions_json` when missing, and creates `negative_stock_reconciliation` and `return_payments` when missing. It does not drop existing business records and is repeatable for those additions.
 
 ### 1b. Apply the Phase 5 Khata and store-logo migration
-Next, open `database/phase5-khata-branding-migration.sql` from this branch in MySQL Workbench and execute the whole script against `nexora_pos_cg`. It adds `business_settings.logo_data`, enables the `CREDIT` sales status, and creates `customer_credit_ledger` without dropping existing sales, customers, items, payments, or stock records. The migration is designed to be re-run. Review any SQL error rather than skipping failed statements.
+Next, open `database/phase5-khata-branding-migration.sql` from this branch in MySQL Workbench and execute the whole script against `ritvan_pos`. It adds `business_settings.logo_data`, enables the `CREDIT` sales status, and creates `customer_credit_ledger` without dropping existing sales, customers, items, payments, or stock records. The migration is designed to be re-run. Review any SQL error rather than skipping failed statements.
 
 ### 1c. Apply the Phase 6 employee/payroll migration
-Open `database/phase6-employees-migration.sql` from this branch in MySQL Workbench and execute it against `nexora_pos_cg`. It creates the employee directory, expense register, monthly payroll snapshots and deduction-allocation tables. It does not drop or rewrite existing POS, customer, item, payment, or stock records. Back up the database first, and read any SQL error rather than ignoring it.
+Open `database/phase6-employees-migration.sql` from this branch in MySQL Workbench and execute it against `ritvan_pos`. It creates the employee directory, expense register, monthly payroll snapshots and deduction-allocation tables. It does not drop or rewrite existing POS, customer, item, payment, or stock records. Back up the database first, and read any SQL error rather than ignoring it.
 
 To save an Aadhaar number, add a private 32-byte encryption key to `server/.env`. Generate it in PowerShell from the `server` folder with:
 
@@ -72,10 +85,13 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 Copy the output to `EMPLOYEE_PII_ENCRYPTION_KEY=` in `server/.env`, then restart the API. Never commit or share this key; back it up somewhere secure. **If the key is lost, saved Aadhaar values cannot be decrypted.** Aadhaar remains optional—employee profiles and payroll work without it.
 
 ### 1d. Apply the Phase 7 business-customer migration
-Open `database/phase7-business-customers-migration.sql` and execute it against `nexora_pos_cg`. It adds the optional `customers.is_business` flag with a default of false. Existing customers stay classified as individuals until you explicitly mark them as businesses, and no sales or customer records are deleted.
+Open `database/phase7-business-customers-migration.sql` and execute it against `ritvan_pos`. It adds the optional `customers.is_business` flag with a default of false. Existing customers stay classified as individuals until you explicitly mark them as businesses, and no sales or customer records are deleted.
 
 ### 1e. Apply the Phase 8 split-payment migration
-Open `database/phase8-split-payments-migration.sql` and execute it against `nexora_pos_cg`. It replaces the unique-per-sale payment index with a normal index so one sale can have multiple Cash/UPI/Card payment rows. It preserves existing rows and values, and is designed to be re-run. Apply this after backing up the database; do not delete or recreate the database.
+Open `database/phase8-split-payments-migration.sql` and execute it against `ritvan_pos`. It replaces the unique-per-sale payment index with a normal index so one sale can have multiple Cash/UPI/Card payment rows. It preserves existing rows and values, and is designed to be re-run. Apply this after backing up the database; do not delete or recreate the database.
+
+### 1f. Apply the Phase 9 Ritvan POS branding migration
+Open `database/phase9-ritvan-branding-migration.sql` and execute it against `ritvan_pos` after importing an existing database. It changes `business_settings.business_name` only when it still equals the old default `Nexora Store`; custom business names are preserved.
 
 After all applicable migrations complete successfully, restart the Express API. Then check `http://localhost:4001/api/health` and confirm it reports `"database":"connected"`.
 
@@ -91,7 +107,7 @@ DB_HOST=127.0.0.1
 DB_PORT=3306
 DB_USER=root
 DB_PASSWORD=your-mysql-password
-DB_NAME=nexora_pos_cg
+DB_NAME=ritvan_pos
 JWT_SECRET=replace-with-a-long-random-secret
 JWT_EXPIRES_IN=8h
 ```
@@ -111,8 +127,8 @@ npm run dev
 
 Health endpoint: http://localhost:4001/api/health
 
-### 3. Create the first Nexora Admin login
-The MySQL setting `DB_PASSWORD` is **not** the Nexora application sign-in password.
+### 3. Create the first Ritvan Admin login
+The MySQL setting `DB_PASSWORD` is **not** the Ritvan application sign-in password.
 
 From the `server` folder, run:
 
@@ -148,11 +164,11 @@ Open the Vite URL printed in the terminal (normally `http://localhost:5173`, or 
 
 ## Same-Wi-Fi LAN setup (recommended for nearby devices)
 
-Use this when the PC running Nexora/MySQL and phones/tablets are connected to the same Wi-Fi. No ngrok tunnel is needed.
+Use this when the PC running Ritvan/MySQL and phones/tablets are connected to the same Wi-Fi. No ngrok tunnel is needed.
 
-1. On the Windows PC running Nexora, open PowerShell and run `ipconfig`. Find the **IPv4 Address** under the connected Wi-Fi adapter (for example `192.168.1.23`). Use your actual address.
+1. On the Windows PC running Ritvan, open PowerShell and run `ipconfig`. Find the **IPv4 Address** under the connected Wi-Fi adapter (for example `192.168.1.23`). Use your actual address.
 2. In `server/.env`, set `PORT=4001`, `HOST=0.0.0.0`, and `LAN_ACCESS=true`. Keep `DB_HOST=127.0.0.1` because MySQL runs on the same PC.
-3. In `client/.env.local` or `client/.env`, set `VITE_HOST=0.0.0.0`, `VITE_PORT=5175`, and `VITE_API_URL=http://localhost:4001/api`. Remove old `NGROK_HOST` and `https://...ngrok-free.app/api` values. Nexora automatically replaces localhost in this API URL with the private IP when a LAN device opens the frontend.
+3. In `client/.env.local` or `client/.env`, set `VITE_HOST=0.0.0.0`, `VITE_PORT=5175`, and `VITE_API_URL=http://localhost:4001/api`. Remove old `NGROK_HOST` and `https://...ngrok-free.app/api` values. Ritvan automatically replaces localhost in this API URL with the private IP when a LAN device opens the frontend.
 4. In separate terminals, start Express from `server` with `npm run dev`, and Vite from `client` with `npm run dev -- --host 0.0.0.0 --port 5175`. If Windows Defender Firewall prompts, allow Node.js on **Private networks only**.
 5. On the host PC, open `http://localhost:5175`. On a phone/tablet on the same Wi-Fi, open `http://YOUR-PC-IP:5175`, replacing the placeholder with the IPv4 address from step 1.
 6. If it cannot connect, first open `http://YOUR-PC-IP:4001/api/health` from that device. It should return JSON with `"status":"ok"` and `"database":"connected"`. If it times out, check Windows Firewall inbound TCP ports 4001 and 5175 on the Private profile, and make sure the device isn't on guest Wi-Fi or blocked by router/AP client isolation.

@@ -214,19 +214,26 @@ export default function LiveModulePage({ page, auth, items, setItems, notify, on
     }
     try {
       const bitmap = await createImageBitmap(file);
-      const maxSide = 560;
-      const scale = Math.min(1, maxSide / Math.max(bitmap.width, bitmap.height));
       const canvas = document.createElement('canvas');
-      canvas.width = Math.max(1, Math.round(bitmap.width * scale));
-      canvas.height = Math.max(1, Math.round(bitmap.height * scale));
       const context = canvas.getContext('2d');
-      if (!context) throw new Error('Could not prepare the photo.');
-      context.fillStyle = '#ffffff';
-      context.fillRect(0, 0, canvas.width, canvas.height);
-      context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+      if (!context) { bitmap.close?.(); throw new Error('Could not prepare the photo.'); }
+      const preserveTransparency = file.type === 'image/png' || file.type === 'image/webp';
+      let imageData = '';
+      for (const maxSide of [560, 480, 420, 360, 300, 240, 180]) {
+        const scale = Math.min(1, maxSide / Math.max(bitmap.width, bitmap.height));
+        canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+        canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+        context.clearRect(0, 0, canvas.width, canvas.height);
+        if (!preserveTransparency) {
+          context.fillStyle = '#ffffff';
+          context.fillRect(0, 0, canvas.width, canvas.height);
+        }
+        context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+        const candidate = preserveTransparency ? canvas.toDataURL('image/png') : canvas.toDataURL('image/jpeg', 0.72);
+        if (candidate.length <= 650000) { imageData = candidate; break; }
+      }
       bitmap.close?.();
-      const imageData = canvas.toDataURL('image/jpeg', 0.72);
-      if (imageData.length > 650000) throw new Error('This photo is still too large after compression. Choose a smaller image.');
+      if (!imageData) throw new Error('This photo is still too large after compression. Choose a smaller or simpler image.');
       setValue('imageData', imageData);
       notify('Product photo ready to save.', 'success');
     } catch (error) {

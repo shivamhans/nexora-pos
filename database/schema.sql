@@ -179,14 +179,16 @@ CREATE TABLE IF NOT EXISTS sale_items (
 
 CREATE TABLE IF NOT EXISTS payments (
   id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
-  sale_id BIGINT UNSIGNED NOT NULL UNIQUE,
+  sale_id BIGINT UNSIGNED NOT NULL,
   method ENUM('CASH','UPI','CARD') NOT NULL,
   amount_received DECIMAL(18,2) NOT NULL,
   change_due DECIMAL(18,2) NOT NULL DEFAULT 0.00,
   reference_no VARCHAR(120) NULL,
   paid_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT fk_payments_sale FOREIGN KEY (sale_id) REFERENCES sales(id),
-  CONSTRAINT chk_payment_amounts CHECK (amount_received >= 0 AND change_due >= 0)
+  CONSTRAINT chk_payment_amounts CHECK (amount_received >= 0 AND change_due >= 0),
+  INDEX idx_payments_sale_id (sale_id),
+  INDEX idx_payments_method_paid_at (method, paid_at)
 ) ENGINE=InnoDB;
 
 CREATE TABLE IF NOT EXISTS customer_credit_ledger (

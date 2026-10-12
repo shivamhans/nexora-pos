@@ -1433,3 +1433,9 @@ select{color-scheme:light}
 }
 @media(prefers-reduced-motion:reduce) { .profile-loading svg,.profile-spin { animation:none; } }
 
+.profile-feedback-warning {
+  border-color:rgba(194,137,32,.28);
+  background:rgba(244,182,74,.12);
+  color:var(--warning,#9a680d);
+}
+

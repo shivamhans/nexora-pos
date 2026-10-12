@@ -1,5 +1,5 @@
 -- RITVAN POS — CONSOLIDATED INSTALL + SAFE SCHEMA UPGRADER (MySQL 8.0+)
--- Replaces the need to run schema.sql and Phase 4–9 upgrade scripts separately.
+-- Replaces the need to run schema.sql and Phase 4–10 upgrade scripts separately.
 --
 -- IMPORTANT DATA-SAFETY RULES
 -- 1. BACK UP the target database before running this script.
@@ -17,6 +17,7 @@
 -- Existing rows are retained. Phase 8 removes only the single-column UNIQUE INDEX on
 -- payments.sale_id (if present) to allow split tenders; it does not delete payment rows.
 -- The Phase 9 branding step changes only the untouched default "Nexora Store" name.
+-- Phase 10 adds an optional users.phone column for My Profile; existing rows get NULL.
 --
 -- After running, verify SELECT DATABASE(); and row counts for items, sales, payments,
 -- customers, employees. Check the output status messages and fix any reported SQL error.

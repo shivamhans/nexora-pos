@@ -45,6 +45,7 @@ CREATE TABLE IF NOT EXISTS users (
   id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
   name VARCHAR(140) NOT NULL,
   email VARCHAR(190) NOT NULL UNIQUE,
+  phone VARCHAR(24) NULL,
   password_hash VARCHAR(255) NOT NULL,
   role ENUM('Admin','Manager','Cashier') NOT NULL DEFAULT 'Cashier',
   permissions_json JSON NULL,
@@ -53,6 +54,20 @@ CREATE TABLE IF NOT EXISTS users (
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB;
+
+-- Phase 10: add the optional phone field for self-service profile settings.
+SET @ritvan_has_users_phone = (
+  SELECT COUNT(*) FROM information_schema.columns
+  WHERE table_schema = DATABASE() AND table_name = 'users' AND column_name = 'phone'
+);
+SET @ritvan_users_phone_sql = IF(
+  @ritvan_has_users_phone = 0,
+  'ALTER TABLE users ADD COLUMN phone VARCHAR(24) NULL AFTER email',
+  'SELECT ' + CHAR(39) + 'users.phone already exists' + CHAR(39) + ' AS migration_status'
+);
+PREPARE ritvan_users_phone_stmt FROM @ritvan_users_phone_sql;
+EXECUTE ritvan_users_phone_stmt;
+DEALLOCATE PREPARE ritvan_users_phone_stmt;
 
 CREATE TABLE IF NOT EXISTS categories (
   id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,

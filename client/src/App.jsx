@@ -153,7 +153,7 @@ function Dashboard({ items, onNavigate, isLive = false, auth, currency = 'INR' }
     id: row.receiptNo,
     date: row.completedAt ? new Date(row.completedAt).toLocaleString('en-IN', { month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—',
     amount: Number(row.totalAmount || 0),
-    method: String(row.paymentMethod || '').toUpperCase() === 'UPI' ? 'UPI' : String(row.paymentMethod || '').toUpperCase() === 'CASH' ? 'Cash' : String(row.paymentMethod || '').toUpperCase() === 'CARD' ? 'Card' : String(row.paymentMethod || '').toUpperCase() === 'CREDIT' ? 'Credit' : '—',
+    method: String(row.paymentMethod || '').toUpperCase() === 'UPI' ? 'UPI' : String(row.paymentMethod || '').toUpperCase() === 'CASH' ? 'Cash' : String(row.paymentMethod || '').toUpperCase() === 'CARD' ? 'Card' : String(row.paymentMethod || '').toUpperCase() === 'CREDIT' ? 'Credit' : String(row.paymentMethod || '').toUpperCase() === 'SPLIT' ? 'Split' : '—',
     initials: String(row.customer || 'Walk-in').split(/\s+/).filter(Boolean).slice(0, 2).map(part => part[0].toUpperCase()).join(''),
     color: 'purple',
   }));

@@ -104,9 +104,12 @@ router.get('/summary', async (req, res, next) => {
     `, [from, to]);
     const [recent] = await pool.execute(`
       SELECT s.id, s.receipt_no AS receiptNo, s.total_amount AS totalAmount, s.completed_at AS completedAt,
-        s.status, COALESCE(c.name, 'Walk-in Customer') AS customer, u.name AS cashier, CASE WHEN s.payment_status = 'CREDIT' THEN 'CREDIT' ELSE p.method END AS paymentMethod
+        s.status, COALESCE(c.name, 'Walk-in Customer') AS customer, u.name AS cashier,
+        CASE WHEN s.payment_status = 'CREDIT' THEN 'CREDIT'
+          WHEN (SELECT COUNT(DISTINCT p2.method) FROM payments p2 WHERE p2.sale_id = s.id) > 1 THEN 'SPLIT'
+          ELSE (SELECT MAX(p2.method) FROM payments p2 WHERE p2.sale_id = s.id) END AS paymentMethod
       FROM sales s LEFT JOIN customers c ON c.id = s.customer_id
-      JOIN users u ON u.id = s.cashier_id LEFT JOIN payments p ON p.sale_id = s.id
+      JOIN users u ON u.id = s.cashier_id
       ORDER BY s.completed_at DESC LIMIT 8
     `);
     const [settingsRows] = await pool.execute('SELECT currency_code AS currencyCode, currency_symbol AS currencySymbol, locale FROM business_settings WHERE id = 1');

@@ -131,7 +131,7 @@ export default function AccountProfilePage({ auth, notify, onUnauthorized, onPro
     } finally { setSavingPassword(false); }
   };
 
-  return <main className="account-profile-page">
+  return <div className="account-profile-page">
     <header className="account-profile-heading">
       <div>
         <div className="profile-eyebrow"><span/> ACCOUNT / PERSONAL SETTINGS</div>
@@ -202,5 +202,5 @@ export default function AccountProfilePage({ auth, notify, onUnauthorized, onPro
         <div className="profile-security-note"><Clock3 size={15}/><span>For account safety, role, access permissions and account status can only be changed by an authorized Admin.</span></div>
       </section>
     </div>
-  </main>;
+  </div>;
 }

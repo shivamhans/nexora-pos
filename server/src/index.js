@@ -50,13 +50,13 @@ app.use(cors({
 }));
 app.use(express.json({ limit: '1mb' }));
 app.get('/', (_req, res) => {
-  res.json({ service: 'nexora-pos-api', status: 'ok', health: '/api/health' });
+  res.json({ service: 'ritvan-pos-api', status: 'ok', health: '/api/health' });
 });
 
 app.get('/api/health', async (_req, res) => {
   let database = 'disconnected';
   try { await pool.query('SELECT 1'); database = 'connected'; } catch { /* health endpoint reports service state */ }
-  res.json({ status: 'ok', service: 'nexora-pos-api', database, time: new Date().toISOString() });
+  res.json({ status: 'ok', service: 'ritvan-pos-api', database, time: new Date().toISOString() });
 });
 app.use('/api/auth', authRoutes);
 app.use('/api/items', itemRoutes);
@@ -81,4 +81,4 @@ app.use((error, _req, res, _next) => {
 });
 const port = Number(process.env.PORT || 4001);
 const host = process.env.HOST || '0.0.0.0';
-app.listen(port, host, () => console.log('Nexora POS API listening on ' + host + ':' + port));
+app.listen(port, host, () => console.log('Ritvan POS API listening on ' + host + ':' + port));

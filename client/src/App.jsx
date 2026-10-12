@@ -426,7 +426,7 @@ function createIdempotencyKey() {
 }
 
 function POS({ items, setItems, notify, role, currency, auth, onUnauthorized, businessName = 'Nexora Store', businessLogo = '' }) {
-  const [cart, setCart] = useState([]); const [query, setQuery] = useState(''); const [category, setCategory] = useState('All'); const [step, setStep] = useState('cart'); const [method, setMethod] = useState('Cash'); const [received, setReceived] = useState(''); const [customer, setCustomer] = useState('Walk-in Customer'); const [customerId, setCustomerId] = useState(''); const [customerPhone, setCustomerPhone] = useState(''); const [customerOptions, setCustomerOptions] = useState([]); const [showPrice, setShowPrice] = useState(null); const [priceDraft, setPriceDraft] = useState(''); const [priceReason, setPriceReason] = useState(''); const [showDiscount, setShowDiscount] = useState(false); const [discount, setDiscount] = useState(''); const [discountReason, setDiscountReason] = useState(''); const [showStockOverride, setShowStockOverride] = useState(null); const [stockReason, setStockReason] = useState(''); const [success, setSuccess] = useState(null); const [submitting, setSubmitting] = useState(false); const [referenceNo, setReferenceNo] = useState(''); const [idempotencyKey, setIdempotencyKey] = useState(() => createIdempotencyKey()); const [sharingReceipt, setSharingReceipt] = useState(false);
+  const [cart, setCart] = useState([]); const [query, setQuery] = useState(''); const [category, setCategory] = useState('All'); const [step, setStep] = useState('cart'); const [method, setMethod] = useState('Cash'); const [received, setReceived] = useState(''); const [splitPayments, setSplitPayments] = useState([{ method: 'UPI', amount: '', referenceNo: '' }, { method: 'Cash', amount: '', referenceNo: '' }]); const [customer, setCustomer] = useState('Walk-in Customer'); const [customerId, setCustomerId] = useState(''); const [customerPhone, setCustomerPhone] = useState(''); const [customerOptions, setCustomerOptions] = useState([]); const [showPrice, setShowPrice] = useState(null); const [priceDraft, setPriceDraft] = useState(''); const [priceReason, setPriceReason] = useState(''); const [showDiscount, setShowDiscount] = useState(false); const [discount, setDiscount] = useState(''); const [discountReason, setDiscountReason] = useState(''); const [showStockOverride, setShowStockOverride] = useState(null); const [stockReason, setStockReason] = useState(''); const [success, setSuccess] = useState(null); const [submitting, setSubmitting] = useState(false); const [referenceNo, setReferenceNo] = useState(''); const [idempotencyKey, setIdempotencyKey] = useState(() => createIdempotencyKey()); const [sharingReceipt, setSharingReceipt] = useState(false);
   useEffect(() => {
     if (!auth?.token) { setCustomerOptions([]); setCustomerId(''); setCustomerPhone(''); return; }
     let cancelled = false;
@@ -442,6 +442,28 @@ function POS({ items, setItems, notify, role, currency, auth, onUnauthorized, bu
   const cats = ['All', ...new Set(items.map(i=>i.category))];
   const products = items.filter(i=>(i.name.toLowerCase().includes(query.toLowerCase())||i.sku.toLowerCase().includes(query.toLowerCase()))&&(category==='All'||i.category===category));
   const subtotal = cart.reduce((s,i)=>s+i.price*i.qty,0); const discountNum = Math.min(subtotal,Math.max(0,Number(discount)||0)); const total = Math.max(0,subtotal-discountNum); const change = Math.max(0,(Number(received)||0)-total);
+  const totalCents = Math.round(total * 100);
+  const splitPaidCents = splitPayments.reduce((sum,row) => sum + Math.round((Number(row.amount) || 0) * 100), 0);
+  const splitMethodsUnique = new Set(splitPayments.map(row => row.method)).size === splitPayments.length;
+  const splitPaymentValid = splitPayments.length >= 2 && splitPayments.length <= 3 && splitMethodsUnique &&
+    splitPayments.every(row => ['Cash','UPI','Card'].includes(row.method) && Number.isFinite(Number(row.amount)) && Number(row.amount) > 0 && Math.abs(Number(row.amount) * 100 - Math.round(Number(row.amount) * 100)) < 0.0001) &&
+    splitPaidCents === totalCents;
+  const startCheckout = () => {
+    const cents = Math.round(total * 100);
+    const first = Math.floor(cents / 2);
+    setSplitPayments([
+      { method: 'UPI', amount: (first / 100).toFixed(2), referenceNo: '' },
+      { method: 'Cash', amount: ((cents - first) / 100).toFixed(2), referenceNo: '' },
+    ]);
+    setReceived('');
+    setStep('payment');
+  };
+  const updateSplitPayment = (index, key, value) => setSplitPayments(previous => previous.map((row,rowIndex) => rowIndex === index ? { ...row, [key]: value } : row));
+  const addSplitPayment = () => setSplitPayments(previous => {
+    if (previous.length >= 3) return previous;
+    const methodOption = ['Cash','UPI','Card'].find(option => !previous.some(row => row.method === option));
+    return methodOption ? [...previous, { method: methodOption, amount: '', referenceNo: '' }] : previous;
+  });
   const addItem = item => { if(item.stock===0 && role!=='Admin'){notify('This item is out of stock. Only an Admin can override stock.','warning');return;} setCart(prev=>{const found=prev.find(x=>x.id===item.id);if(found){if(found.qty+1>item.stock && role!=='Admin'){notify(`Only ${item.stock} units available.`,'warning');return prev;}return prev.map(x=>x.id===item.id?{...x,qty:x.qty+1}:x);}return [...prev,{...item,qty:1,defaultPrice:item.price,override:false}];}); };
   const changeQty = (id, delta) => setCart(prev=>prev.map(line=>{if(line.id!==id)return line;const next=line.qty+delta;if(next<1)return line;if(next>items.find(i=>i.id===id).stock && role!=='Admin'){notify(`Only ${items.find(i=>i.id===id).stock} units available.`,'warning');return line;}return {...line,qty:next};}));
   const removeLine = id => setCart(prev=>prev.filter(x=>x.id!==id));
@@ -449,6 +471,13 @@ function POS({ items, setItems, notify, role, currency, auth, onUnauthorized, bu
     if (!cart.length || submitting) return;
     if (method === 'Credit' && !customerId) { notify('Khata is available only for a registered customer.', 'warning'); return; }
     if (method === 'Cash' && (received === '' || Number(received) < total)) { notify('Amount received must cover the total.', 'warning'); return; }
+    if (method === 'Split' && !splitPaymentValid) {
+      const remainingCents = totalCents - splitPaidCents;
+      notify(remainingCents === 0
+        ? 'Add at least two different, positive payment methods.'
+        : 'Split payment amounts must add up exactly to ' + money(total) + '. Remaining: ' + money(remainingCents / 100) + '.', 'warning');
+      return;
+    }
     const overrideLines = cart.filter(line => line.qty > (items.find(i => i.id === line.id)?.stock ?? 0));
     if (overrideLines.length && role !== 'Admin') { notify('Resolve stock issues before checkout.', 'warning'); return; }
     if (overrideLines.length && !overrideLines.every(line => line.stockOverride && String(line.stockReason || '').trim().length >= 5)) {
@@ -467,6 +496,7 @@ function POS({ items, setItems, notify, role, currency, auth, onUnauthorized, bu
             customerId: customerId ? Number(customerId) : null,
             paymentMethod: method,
             amountReceived: method === 'Cash' ? Number(received) : total,
+            payments: method === 'Split' ? splitPayments.map(row => ({ method: row.method, amount: Number(row.amount), referenceNo: row.referenceNo.trim() || null })) : undefined,
             referenceNo: referenceNo.trim() || null,
             discountAmount: discountNum,
             discountReason: discountNum > 0 ? discountReason.trim() : null,
@@ -487,6 +517,7 @@ function POS({ items, setItems, notify, role, currency, auth, onUnauthorized, bu
           phone: customerPhone.trim(),
           amount: Number(result.sale.total),
           method: result.sale.paymentMethod || method,
+          payments: result.sale.payments || (method === 'Split' ? splitPayments.map(row => ({ method: row.method, amountReceived: Number(row.amount), changeDue: 0, referenceNo: row.referenceNo.trim() || null })) : []),
           date: new Date().toLocaleString(),
           items: cart.map(line => ({ ...line })),
           change: Number(result.sale.changeDue || 0),
@@ -501,6 +532,7 @@ function POS({ items, setItems, notify, role, currency, auth, onUnauthorized, bu
           phone: customerPhone.trim(),
           amount: total,
           method,
+          payments: method === 'Split' ? splitPayments.map(row => ({ method: row.method, amountReceived: Number(row.amount), changeDue: 0, referenceNo: row.referenceNo.trim() || null })) : [],
           date: new Date().toLocaleString(),
           items: cart.map(line => ({ ...line })),
           change: method === 'Cash' ? change : 0,
@@ -571,7 +603,7 @@ function POS({ items, setItems, notify, role, currency, auth, onUnauthorized, bu
       notify(error?.message || 'Could not create the receipt image. Please use Print receipt instead.', 'warning');
     } finally { setSharingReceipt(false); }
   };
-  const reset = () => {setCart([]);setQuery('');setMethod('Cash');setReceived('');setReferenceNo('');setDiscount('');setDiscountReason('');setCustomer('Walk-in Customer');setCustomerId('');setCustomerPhone('');setStep('cart');setSuccess(null);setIdempotencyKey(createIdempotencyKey());};
+  const reset = () => {setCart([]);setQuery('');setMethod('Cash');setReceived('');setSplitPayments([{method:'UPI',amount:'',referenceNo:''},{method:'Cash',amount:'',referenceNo:''}]);setReferenceNo('');setDiscount('');setDiscountReason('');setCustomer('Walk-in Customer');setCustomerId('');setCustomerPhone('');setStep('cart');setSuccess(null);setIdempotencyKey(createIdempotencyKey());};
   const openPrice = line => {setShowPrice(line.id);setPriceDraft(String(line.price));setPriceReason('');};
   const savePrice = () => {if(priceReason.trim().length<5){notify('Please enter a reason of at least 5 characters.','warning');return;}const value=Number(priceDraft);if(!Number.isFinite(value)||value<0){notify('Enter a valid price.','warning');return;}setCart(prev=>prev.map(x=>x.id===showPrice?{...x,price:value,override:true,overrideReason:priceReason}:x));setShowPrice(null);notify('Price override applied to this cart line.','success');};
   const saveDiscount = () => {if(discountReason.trim().length<5){notify('Please enter a discount reason of at least 5 characters.','warning');return;}if(Number(discount)<0||Number(discount)>subtotal){notify('Discount must be between zero and subtotal.','warning');return;}setShowDiscount(false);notify('Order discount applied.','success');};

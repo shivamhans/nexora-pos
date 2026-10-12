@@ -56,25 +56,30 @@ Then set `DB_NAME=ritvan_pos` in your local `server/.env` (the local file is not
 
 For a brand-new installation, skip the data-copy steps and run `database/schema.sql` as shown below.
 
-### 1. Update the database schema
-Start MySQL. From the repository root, execute:
+### 1. Run the single consolidated database script
+
+Use **`database/ritvan-pos-all-in-one.sql`** for both new installations and upgrades. It combines the current schema with the Phase 4–9 changes, so you no longer need to run each migration file separately.
+
+**Back up first, even when the data is valuable and the upgrade is expected to be safe.**
+
+For an existing customer's database:
+1. Stop the API so no new sale is written during the upgrade.
+2. In MySQL Workbench, use **Server → Data Export** to export the complete database with **Dump Structure and Data**. Confirm the export file exists and can be opened.
+3. In the schema navigator, select the database that currently contains the customer's live data and make it the active/default schema.
+4. Open `database/ritvan-pos-all-in-one.sql` and execute the **entire file once**. Check the selected database name printed at the top before proceeding, then read the complete output and resolve any SQL error.
+5. Verify row counts for `items`, `sales`, `sale_items`, `payments`, `customers`, and `employees`. Confirm `http://localhost:4001/api/health` reports `"database":"connected"` before allowing checkout again.
+
+The consolidated script uses `CREATE TABLE IF NOT EXISTS`, adds missing columns/indexes, and does not drop tables, truncate tables, or delete business rows. The Phase 8 step removes only a unique index on `payments.sale_id` if it exists (the payment rows are kept) so split payments can be saved. The branding step changes the business name only if it is still the default `Nexora Store`; custom names such as `ViharBite` are preserved. MySQL DDL can auto-commit, so the backup is still essential if any SQL error occurs.
+
+**Database-name caution:** this file upgrades whichever schema is selected; it does not copy or rename a database. If the customer's real data is currently in `nexora_pos_cg`, keep `DB_NAME=nexora_pos_cg` in that customer's existing `server/.env` while applying/verifying the upgrade there. Do not point the app at a new empty `ritvan_pos` database and assume the records followed automatically. To move to `ritvan_pos`, export the old database, import a copy into `ritvan_pos`, compare the row counts, then update `DB_NAME` only after successful verification. Keep the original database and backup until you have used the new database successfully.
+
+For a **brand-new installation**, create and select `ritvan_pos` first, then execute the same consolidated file. From a terminal, once the database exists, run:
 
 ```bash
-mysql -u root -p < database/schema.sql
+mysql -u root -p ritvan_pos < database/ritvan-pos-all-in-one.sql
 ```
 
-Alternatively, execute `database/schema.sql` in MySQL Workbench. It targets `ritvan_pos`. You can re-run it after updates: the `CREATE TABLE IF NOT EXISTS` statements preserve existing tables/rows and create the new `negative_stock_reconciliation` and `return_payments` tables if missing. Back up data before applying schema changes to any database with valuable records.
-
-### 1a. Back up and apply the upgrade migrations in order
-Before changing an existing store database, make a backup of `ritvan_pos` in MySQL Workbench (Server → Data Export), and confirm the export completed. **Do not drop or recreate the database.**
-
-If this installation has not already received the Phase 4 upgrade, open `database/phase4-migration.sql` from this branch in MySQL Workbench and execute the whole script first. It adds `items.image_data` and `users.permissions_json` when missing, and creates `negative_stock_reconciliation` and `return_payments` when missing. It does not drop existing business records and is repeatable for those additions.
-
-### 1b. Apply the Phase 5 Khata and store-logo migration
-Next, open `database/phase5-khata-branding-migration.sql` from this branch in MySQL Workbench and execute the whole script against `ritvan_pos`. It adds `business_settings.logo_data`, enables the `CREDIT` sales status, and creates `customer_credit_ledger` without dropping existing sales, customers, items, payments, or stock records. The migration is designed to be re-run. Review any SQL error rather than skipping failed statements.
-
-### 1c. Apply the Phase 6 employee/payroll migration
-Open `database/phase6-employees-migration.sql` from this branch in MySQL Workbench and execute it against `ritvan_pos`. It creates the employee directory, expense register, monthly payroll snapshots and deduction-allocation tables. It does not drop or rewrite existing POS, customer, item, payment, or stock records. Back up the database first, and read any SQL error rather than ignoring it.
+The older `schema.sql` and `phase4`–`phase9` files remain in the repository for reference/backward compatibility. For a new setup or current upgrade, use the consolidated file rather than running them one by one.
 
 To save an Aadhaar number, add a private 32-byte encryption key to `server/.env`. Generate it in PowerShell from the `server` folder with:
 
@@ -83,17 +88,6 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ```
 
 Copy the output to `EMPLOYEE_PII_ENCRYPTION_KEY=` in `server/.env`, then restart the API. Never commit or share this key; back it up somewhere secure. **If the key is lost, saved Aadhaar values cannot be decrypted.** Aadhaar remains optional—employee profiles and payroll work without it.
-
-### 1d. Apply the Phase 7 business-customer migration
-Open `database/phase7-business-customers-migration.sql` and execute it against `ritvan_pos`. It adds the optional `customers.is_business` flag with a default of false. Existing customers stay classified as individuals until you explicitly mark them as businesses, and no sales or customer records are deleted.
-
-### 1e. Apply the Phase 8 split-payment migration
-Open `database/phase8-split-payments-migration.sql` and execute it against `ritvan_pos`. It replaces the unique-per-sale payment index with a normal index so one sale can have multiple Cash/UPI/Card payment rows. It preserves existing rows and values, and is designed to be re-run. Apply this after backing up the database; do not delete or recreate the database.
-
-### 1f. Apply the Phase 9 Ritvan POS branding migration
-Open `database/phase9-ritvan-branding-migration.sql` and execute it against `ritvan_pos` after importing an existing database. It changes `business_settings.business_name` only when it still equals the old default `Nexora Store`; custom business names are preserved.
-
-After all applicable migrations complete successfully, restart the Express API. Then check `http://localhost:4001/api/health` and confirm it reports `"database":"connected"`.
 
 ### 2. Configure and start the API
 In the `server` folder, copy `server/.env.example` to `server/.env` (PowerShell from that folder: `Copy-Item .env.example .env`).

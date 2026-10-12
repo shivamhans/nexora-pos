@@ -2,7 +2,7 @@
 
 Ritvan POS is a desktop-first point-of-sale and inventory system built with React, Vite, Tailwind CSS, Express, and local MySQL.
 
-## Current milestone: Phase 9 — Ritvan POS rebrand and photo polish
+## Current milestone: Phase 10 — self-service profile settings
 
 The draft feature branch now includes:
 - Premium sign-in, role-aware navigation, same-Wi-Fi LAN support, and a responsive light/dark workspace.
@@ -23,13 +23,14 @@ The draft feature branch now includes:
 - Supplier/customer directories, purchase orders and receiving with weighted-average-cost updates.
 - Searchable transaction history and partial returns with quantity/refund checks, optional restocking, manual settlement records, stock movements and audit history.
 - Admin-only staff-account management: invite app users, assign app roles, activate/deactivate accounts, and reset passwords. Protected APIs reload current account role/status.
+- **My Profile:** every signed-in user can update their own name, email and optional phone number, and change their password after confirming the current password. Role, permissions and account status stay protected from self-editing; profile changes are recorded in the audit log.
 - **Employee directory and payroll (Phase 6):** a separate Admin-only employee register supports compressed profile photos, phone, joining date, job title, monthly salary and recurring salary due day. Optional Aadhaar is encrypted using AES-256-GCM before storage; the API shows only the final four digits. Monthly payroll is generated once as a salary snapshot and can be marked paid/unpaid with audit history.
 - **Employee expenses:** record company-paid expenses with their payment method or schedule a salary deduction for the next calendar month's payroll. Deductions are applied in order and unused amounts carry forward if they exceed that month's salary. A deduction cannot be added to a month whose payroll has already been generated; generate payroll after recording that month's planned deductions.
 - Persisted business name, currency, locale, timezone and receipt footer; the sidebar uses the saved business name and stock alerts use each item's configured threshold.
 - Database-backed reports and dashboard. Gross profit is withheld when provisional costs affect a period; net profit is not reported without expense tracking.
 - GitHub Actions checks the frontend production build and backend JavaScript syntax.
 
-**Phase 9 completes the Ritvan POS rebrand and product-photo presentation; this feature branch is still not a production-readiness certification.** Tax collection remains disabled until its rate/calculation policy is approved; returns record a manual settlement method but do not transfer funds through a payment gateway. End-to-end, multi-device concurrency, rollback and security testing with your local MySQL setup is still required before real-store use.
+**Phase 10 adds self-service profile and password settings; this feature branch is still not a production-readiness certification.** Tax collection remains disabled until its rate/calculation policy is approved; returns record a manual settlement method but do not transfer funds through a payment gateway. End-to-end, multi-device concurrency, rollback and security testing with your local MySQL setup is still required before real-store use.
 
 ## Item identifiers
 When creating an item, the SKU field is optional. If you leave it blank, the API generates a unique `NX-` SKU at save time. If you enter your own SKU, it must be unique. A **SKU (Stock Keeping Unit)** is your internal code for identifying a product or product variant, for example `CHO-050` for a 50 g chocolate bar or `NX-1001` for a general product code. Each distinct item should have its own unique SKU. A barcode is a separate scannable identifier; it does not have to be the same as the SKU. Item creation also supports an optional product photo: select a JPEG, PNG or WebP image (up to 8 MB before resizing). Photos keep their aspect ratio in a consistent, contain-fit frame; transparent PNG/WebP uploads retain transparency, while opaque photos are compressed to JPEG. The API stores the image in MySQL, so no separate uploads folder is needed.
@@ -58,7 +59,7 @@ For a brand-new installation, skip the data-copy steps and run `database/schema.
 
 ### 1. Run the single consolidated database script
 
-Use **`database/ritvan-pos-all-in-one.sql`** for both new installations and upgrades. It combines the current schema with the Phase 4–9 changes, so you no longer need to run each migration file separately.
+Use **`database/ritvan-pos-all-in-one.sql`** for both new installations and upgrades. It combines the current schema with the Phase 4–10 changes, including the optional phone field for user profiles, so you no longer need to run each migration file separately.
 
 **Back up first, even when the data is valuable and the upgrade is expected to be safe.**
 
@@ -69,7 +70,7 @@ For an existing customer's database:
 4. Open `database/ritvan-pos-all-in-one.sql` and execute the **entire file once**. Check the selected database name printed at the top before proceeding, then read the complete output and resolve any SQL error.
 5. Verify row counts for `items`, `sales`, `sale_items`, `payments`, `customers`, and `employees`. Confirm `http://localhost:4001/api/health` reports `"database":"connected"` before allowing checkout again.
 
-The consolidated script uses `CREATE TABLE IF NOT EXISTS`, adds missing columns/indexes, and does not drop tables, truncate tables, or delete business rows. The Phase 8 step removes only a unique index on `payments.sale_id` if it exists (the payment rows are kept) so split payments can be saved. The branding step changes the business name only if it is still the default `Nexora Store`; custom names such as `ViharBite` are preserved. MySQL DDL can auto-commit, so the backup is still essential if any SQL error occurs.
+The consolidated script uses `CREATE TABLE IF NOT EXISTS`, adds missing columns/indexes, and does not drop tables, truncate tables, or delete business rows. Phase 10 adds `users.phone` only if it is missing; existing users get a `NULL` phone and their current names, emails, passwords, roles and permissions remain intact. The Phase 8 step removes only a unique index on `payments.sale_id` if it exists (the payment rows are kept) so split payments can be saved. The branding step changes the business name only if it is still the default `Nexora Store`; custom names such as `ViharBite` are preserved. MySQL DDL can auto-commit, so the backup is still essential if any SQL error occurs.
 
 **Database-name caution:** this file upgrades whichever schema is selected; it does not copy or rename a database. If the customer's real data is currently in `nexora_pos_cg`, keep `DB_NAME=nexora_pos_cg` in that customer's existing `server/.env` while applying/verifying the upgrade there. Do not point the app at a new empty `ritvan_pos` database and assume the records followed automatically. To move to `ritvan_pos`, export the old database, import a copy into `ritvan_pos`, compare the row counts, then update `DB_NAME` only after successful verification. Keep the original database and backup until you have used the new database successfully.
 

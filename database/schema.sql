@@ -24,6 +24,7 @@ CREATE TABLE IF NOT EXISTS users (
   id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
   name VARCHAR(140) NOT NULL,
   email VARCHAR(190) NOT NULL UNIQUE,
+  phone VARCHAR(24) NULL,
   password_hash VARCHAR(255) NOT NULL,
   role ENUM('Admin','Manager','Cashier') NOT NULL DEFAULT 'Cashier',
   permissions_json JSON NULL,

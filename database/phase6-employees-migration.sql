@@ -1,7 +1,7 @@
--- Nexora POS Phase 6: employee directory, payroll, and staff expenses.
--- Back up nexora_pos_cg before running. This migration only creates new tables
+-- Ritvan POS Phase 6: employee directory, payroll, and staff expenses.
+-- Back up ritvan_pos before running. This migration only creates new tables
 -- and does not delete or rewrite existing business records.
-USE nexora_pos_cg;
+USE ritvan_pos;
 
 CREATE TABLE IF NOT EXISTS employees (
   id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,

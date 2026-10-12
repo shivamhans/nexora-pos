@@ -6,7 +6,7 @@ import { requireAuth } from '../middleware/auth.js';
 import { effectivePermissions } from '../middleware/permissions.js';
 
 const router = Router();
-const validEmail = value => /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(value);
+const validEmail = value => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 const safeUser = row => ({
   id: row.id,
   name: row.name,
@@ -50,7 +50,7 @@ router.patch('/me', requireAuth, async (req, res, next) => {
   if (phone !== undefined && phone.length > 24) {
     return res.status(400).json({ error: 'Phone number must be 24 characters or fewer.' });
   }
-  if (phone && (!/^[+0-9().\\s-]+$/.test(phone) || phone.replace(/\\D/g, '').length < 7)) {
+  if (phone && (!/^[+0-9().\s-]+$/.test(phone) || phone.replace(/\D/g, '').length < 7)) {
     return res.status(400).json({ error: 'Enter a valid phone number or leave it blank.' });
   }
   if (hasPasswordFields) {

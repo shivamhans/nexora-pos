@@ -64,7 +64,7 @@ function Field({ label, children, hint }) {
 }
 function LiveModal({ title, subtitle, onClose, children, onSubmit, submitLabel = 'Save record', busy = false, wide = false }) {
   return <div className="modal-backdrop" onClick={onClose}><form className={'modal live-modal' + (wide ? ' live-modal-wide' : '')} onClick={e => e.stopPropagation()} onSubmit={onSubmit}>
-    <div className="modal-head"><div><div className="eyebrow">NEXORA WORKSPACE</div><h2>{title}</h2>{subtitle && <p>{subtitle}</p>}</div><button type="button" className="icon-button" onClick={onClose} aria-label="Close"><X size={18}/></button></div>
+    <div className="modal-head"><div><div className="eyebrow">RITVAN WORKSPACE</div><h2>{title}</h2>{subtitle && <p>{subtitle}</p>}</div><button type="button" className="icon-button" onClick={onClose} aria-label="Close"><X size={18}/></button></div>
     <div className="live-modal-content">{children}</div>
     <div className="modal-actions"><LiveButton onClick={onClose}>Cancel</LiveButton><LiveButton type="submit" variant="primary" icon={Save} disabled={busy}>{busy ? 'Saving…' : submitLabel}</LiveButton></div>
   </form></div>;
@@ -209,7 +209,7 @@ export default function LiveModulePage({ page, auth, items, setItems, notify, on
       return;
     }
     if (file.size > 8 * 1024 * 1024) {
-      notify('Choose an image under 8 MB. Nexora will resize it before saving.', 'warning');
+      notify('Choose an image under 8 MB. Ritvan will resize it before saving.', 'warning');
       return;
     }
     try {
@@ -561,7 +561,7 @@ export default function LiveModulePage({ page, auth, items, setItems, notify, on
     event.currentTarget.value = '';
     if (!file) return;
     if (!file.type.startsWith('image/')) { notify('Choose an image file for your store logo.', 'warning'); return; }
-    if (file.size > 8 * 1024 * 1024) { notify('Choose a logo image under 8 MB. Nexora will resize it before saving.', 'warning'); return; }
+    if (file.size > 8 * 1024 * 1024) { notify('Choose a logo image under 8 MB. Ritvan will resize it before saving.', 'warning'); return; }
     try {
       const bitmap = await createImageBitmap(file);
       const canvas = document.createElement('canvas');
@@ -697,7 +697,7 @@ export default function LiveModulePage({ page, auth, items, setItems, notify, on
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement('a');
     anchor.href = url;
-    anchor.download = 'nexora-' + page.toLowerCase().replace(/[^a-z0-9]+/g, '-') + '.csv';
+    anchor.download = 'ritvan-' + page.toLowerCase().replace(/[^a-z0-9]+/g, '-') + '.csv';
     anchor.click();
     URL.revokeObjectURL(url);
   };
@@ -746,7 +746,7 @@ export default function LiveModulePage({ page, auth, items, setItems, notify, on
     const rows = reportData.daily || [];
     const csv = ['date,sales,refunds,netRevenue', ...rows.map(row => [row.day, row.sales, row.refunds, row.netRevenue].join(','))].join('\r\n');
     const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
-    const anchor = document.createElement('a'); anchor.href = url; anchor.download = 'nexora-sales-report-' + reportFrom + '-to-' + reportTo + '.csv'; anchor.click(); URL.revokeObjectURL(url);
+    const anchor = document.createElement('a'); anchor.href = url; anchor.download = 'ritvan-sales-report-' + reportFrom + '-to-' + reportTo + '.csv'; anchor.click(); URL.revokeObjectURL(url);
   };
 
   const moduleActions = <>
@@ -790,7 +790,7 @@ export default function LiveModulePage({ page, auth, items, setItems, notify, on
       : <div className="table-wrap"><table><thead><tr>{columnVisible('Returns & Refunds','returnNo') && <th>RETURN</th>}{columnVisible('Returns & Refunds','receiptNo') && <th>ORIGINAL RECEIPT</th>}{columnVisible('Returns & Refunds','customer') && <th>CUSTOMER</th>}{columnVisible('Returns & Refunds','date') && <th>DATE</th>}{columnVisible('Returns & Refunds','refund') && <th>REFUND</th>}{columnVisible('Returns & Refunds','settlement') && <th>SETTLEMENT</th>}{columnVisible('Returns & Refunds','status') && <th>STATUS</th>}</tr></thead><tbody>{currentRows.map(row=><tr key={row.id}>
         {columnVisible('Returns & Refunds','returnNo') && <td><b>{row.returnNo}</b><small className="live-cell-sub">{row.processedBy || 'Staff'}</small></td>}{columnVisible('Returns & Refunds','receiptNo') && <td>{row.receiptNo}</td>}{columnVisible('Returns & Refunds','customer') && <td>{row.customer}</td>}{columnVisible('Returns & Refunds','date') && <td>{asDate(row.completedAt || row.createdAt)}</td>}{columnVisible('Returns & Refunds','refund') && <td><b>{cash(row.refundTotal)}</b></td>}{columnVisible('Returns & Refunds','settlement') && <td>{prettyStatus(row.refundMethod || 'MANUAL')}</td>}{columnVisible('Returns & Refunds','status') && <td><StatusPill value={row.status}/></td>}
       </tr>)}</tbody></table></div>}
-      <div className="warning-callout"><CircleHelp size={16}/><span>Settlement is recorded manually; Nexora does not send money through a payment gateway. Returned lines marked as restocked increase quantity and update weighted-average cost using the original sale cost snapshot.</span></div>
+      <div className="warning-callout"><CircleHelp size={16}/><span>Settlement is recorded manually; Ritvan does not send money through a payment gateway. Returned lines marked as restocked increase quantity and update weighted-average cost using the original sale cost snapshot.</span></div>
     </section>}
 
     {page === 'Settings' && <section className="panel live-section settings-live-panel">
@@ -804,7 +804,7 @@ export default function LiveModulePage({ page, auth, items, setItems, notify, on
               <div className="business-logo-preview">{settings.logoData ? <img src={settings.logoData} alt="Store logo preview"/> : <Store size={24}/>}</div>
               <div className="business-logo-controls">
                 <input className="form-input photo-file-input" type="file" accept="image/jpeg,image/png,image/webp" onChange={handleBusinessLogo} disabled={role!=='Admin' || busy}/>
-                <small>Used on the WhatsApp receipt image and receipt preview. Square or landscape logos work best; Nexora compresses the image before saving.</small>
+                <small>Used on the WhatsApp receipt image and receipt preview. Square or landscape logos work best; Ritvan compresses the image before saving.</small>
                 {settings.logoData && role === 'Admin' && <button type="button" className="text-button" onClick={()=>setSettings(old=>({...old,logoData:null}))}>Remove logo</button>}
               </div>
             </div>
@@ -888,7 +888,7 @@ export default function LiveModulePage({ page, auth, items, setItems, notify, on
     </section>}
 
     {modal === 'return-create' && <LiveModal title="Start a return" subtitle="Find the original saved sale, select returned quantities, then record the manual refund settlement." onClose={()=>{setModal('');setReturnSale(null);setReturnLines([]);}} onSubmit={submitReturn} busy={busy} submitLabel="Complete return" wide>
-      <div className="live-return-lookup"><Field label="Original receipt number or sale ID"><input className="form-input" value={form.receiptNo || ''} onChange={e=>setValue('receiptNo',e.target.value)} placeholder="Full receipt, sale ID, or last 4 characters (e.g. D275)"/><small>Enter the full receipt/sale ID or its last four characters (letters or digits, e.g. D275). If more than one sale matches, Nexora will ask for the full ID.</small></Field><LiveButton icon={Search} onClick={loadReturnSale} disabled={busy}>Find sale</LiveButton></div>
+      <div className="live-return-lookup"><Field label="Original receipt number or sale ID"><input className="form-input" value={form.receiptNo || ''} onChange={e=>setValue('receiptNo',e.target.value)} placeholder="Full receipt, sale ID, or last 4 characters (e.g. D275)"/><small>Enter the full receipt/sale ID or its last four characters (letters or digits, e.g. D275). If more than one sale matches, Ritvan will ask for the full ID.</small></Field><LiveButton icon={Search} onClick={loadReturnSale} disabled={busy}>Find sale</LiveButton></div>
       {returnSale && <div className="live-return-sale-summary"><div><small>Receipt</small><b>{returnSale.receiptNo}</b></div><div><small>Customer</small><b>{returnSale.customer || 'Walk-in Customer'}</b></div><div><small>Original total</small><b>{cash(returnSale.totalAmount)}</b></div><div><small>Completed</small><b>{asDate(returnSale.completedAt)}</b></div></div>}
       {returnSale && <div className="live-return-lines"><div className="panel-head"><div><h3>Sale lines</h3><p>Set quantity to zero for items not being returned. Previous returns are checked by the server.</p></div></div>
         {returnLines.map((line,index)=><div className="live-return-line" key={line.saleItemId}>
@@ -962,14 +962,14 @@ export default function LiveModulePage({ page, auth, items, setItems, notify, on
       <div className="warning-callout"><ShieldCheck size={16}/><span>The password will be hashed by the server. The user should sign in with this new password; the existing session role is reloaded from the database.</span></div>
     </LiveModal>}
 
-    {(modal === 'create' || modal === 'edit') && <LiveModal title={modal === 'edit' ? (page === 'Items' ? 'Edit item details' : page === 'Categories' ? 'Edit category details' : page === 'Customers' ? 'Edit customer details' : 'Edit purchase order') : page === 'Items' ? 'Add item' : page === 'Categories' ? 'Add category' : page === 'Suppliers' ? 'Add supplier' : page === 'Customers' ? 'Add customer' : page === 'Staff & Roles' ? 'Invite staff member' : 'Create purchase order'} subtitle={modal === 'edit' ? 'Changes are validated by the API and saved to MySQL.' : "Required fields are validated by Nexora's API."} onClose={()=>setModal('')} onSubmit={submitCreate} busy={busy} submitLabel={modal === 'edit' ? 'Save changes' : page === 'Purchases' ? 'Create purchase order' : 'Save record'} wide={page === 'Purchases' || modal === 'edit'}>
+    {(modal === 'create' || modal === 'edit') && <LiveModal title={modal === 'edit' ? (page === 'Items' ? 'Edit item details' : page === 'Categories' ? 'Edit category details' : page === 'Customers' ? 'Edit customer details' : 'Edit purchase order') : page === 'Items' ? 'Add item' : page === 'Categories' ? 'Add category' : page === 'Suppliers' ? 'Add supplier' : page === 'Customers' ? 'Add customer' : page === 'Staff & Roles' ? 'Invite staff member' : 'Create purchase order'} subtitle={modal === 'edit' ? 'Changes are validated by the API and saved to MySQL.' : "Required fields are validated by Ritvan's API."} onClose={()=>setModal('')} onSubmit={submitCreate} busy={busy} submitLabel={modal === 'edit' ? 'Save changes' : page === 'Purchases' ? 'Create purchase order' : 'Save record'} wide={page === 'Purchases' || modal === 'edit'}>
       {(page === 'Items' || page === 'Categories' || page === 'Suppliers' || page === 'Customers' || page === 'Staff & Roles') && <div className="live-form-grid">
         <Field label="Name *"><input className="form-input" required maxLength={page === 'Categories' ? 120 : 200} value={form.name || ''} onChange={e=>setValue('name',e.target.value)} placeholder={page === 'Items' ? 'e.g. Matcha Energy Blend' : page === 'Categories' ? 'e.g. Beverages' : page === 'Suppliers' ? 'Supplier business name' : page === 'Staff & Roles' ? 'Team member name' : 'Customer full name'}/></Field>
         {page === 'Items' && <>
-          <Field label="SKU (optional)"><input className="form-input" maxLength={80} value={form.sku || ''} onChange={e=>setValue('sku',e.target.value)} placeholder="Leave blank to generate automatically"/><small>{modal === 'edit' ? 'Leave blank to keep the current SKU unchanged.' : 'If left blank, Nexora creates a unique SKU when saving.'}</small></Field>
+          <Field label="SKU (optional)"><input className="form-input" maxLength={80} value={form.sku || ''} onChange={e=>setValue('sku',e.target.value)} placeholder="Leave blank to generate automatically"/><small>{modal === 'edit' ? 'Leave blank to keep the current SKU unchanged.' : 'If left blank, Ritvan creates a unique SKU when saving.'}</small></Field>
           <Field label="Product photo (optional)">
             <div className="photo-upload-control"><ImagePlus size={18}/><input className="form-input photo-file-input" type="file" accept="image/jpeg,image/png,image/webp" onChange={handleItemPhoto}/></div>
-            <small>JPEG, PNG or WebP. Nexora resizes and compresses the photo before saving it with the item.</small>
+            <small>JPEG, PNG or WebP. Ritvan resizes and compresses the photo before saving it with the item.</small>
           </Field>
           {form.imageData && <div className="item-photo-preview"><img src={form.imageData} alt="Product photo preview"/><div><b>{modal === 'edit' ? 'Current photo' : 'Photo ready'}</b><small>{modal === 'edit' ? 'Keep this image or remove it before saving changes.' : 'It will appear on item cards and in the POS catalog.'}</small><LiveButton onClick={()=>setValue('imageData','')} icon={X}>Remove photo</LiveButton></div></div>}
           <Field label="Category"><select className="form-input" value={form.categoryId || ''} onChange={e=>setValue('categoryId',e.target.value)}><option value="">Uncategorized</option>{categories.map(c=><option key={c.id} value={c.id} disabled={!Number(c.isActive) && String(form.categoryId) !== String(c.id)}>{c.name}{Number(c.isActive) ? '' : ' (inactive)'}</option>)}</select></Field>
@@ -1035,7 +1035,7 @@ export default function LiveModulePage({ page, auth, items, setItems, notify, on
 
     {modal === 'transaction' && transactionDetail && <div className="modal-backdrop" onClick={()=>setModal('')}><div className="modal live-modal live-modal-wide" onClick={e=>e.stopPropagation()}><div className="modal-head"><div><div className="eyebrow">SAVED TRANSACTION</div><h2>{transactionDetail.receiptNo}</h2><p>{asDate(transactionDetail.completedAt)} · {transactionDetail.customer || 'Walk-in Customer'} · {transactionDetail.cashier || 'Unknown cashier'}</p></div><button className="icon-button" onClick={()=>setModal('')}><X size={18}/></button></div>
       <div className="print-only printable-receipt transaction-print-receipt">
-        <div className="print-receipt-brand">{businessLogo && <img className="print-receipt-logo" src={businessLogo} alt={businessName || 'Store logo'}/>}<strong>{businessName || 'NEXORA'}</strong><small>POINT OF SALE · SALES RECEIPT</small></div>
+        <div className="print-receipt-brand">{businessLogo && <img className="print-receipt-logo" src={businessLogo} alt={businessName || 'Store logo'}/>}<strong>{businessName || 'RITVAN'}</strong><small>POINT OF SALE · SALES RECEIPT</small></div>
         <div className="print-receipt-meta">
           <div><span>Receipt</span><b>{transactionDetail.receiptNo}</b></div>
           <div><span>Date</span><b>{asDate(transactionDetail.completedAt)}</b></div>

@@ -1047,3 +1047,38 @@ select{color-scheme:light}
   grid-template-columns: repeat(auto-fit, minmax(78px, 1fr));
 }
 
+/* Clear, visible legend for sales versus refunds in database-backed reports. */
+.live-report-chart-legend {
+  display:flex;
+  align-items:center;
+  gap:14px;
+  flex-wrap:wrap;
+  padding:2px 18px 0;
+  color:var(--muted);
+  font-size:9px;
+}
+.live-report-chart-legend>span {
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  font-weight:700;
+}
+.live-report-chart-legend i {
+  display:block;
+  width:8px;
+  height:8px;
+  flex:0 0 8px;
+  border-radius:3px;
+}
+.live-report-legend-sales { background:#7968e8; }
+.live-report-legend-refunds { background:#e5a2aa; }
+.live-report-chart-legend small {
+  margin-left:auto;
+  color:var(--subtle);
+  font-size:8px;
+}
+@media(max-width:560px) {
+  .live-report-chart-legend { gap:9px;padding:7px 12px 0; }
+  .live-report-chart-legend small { width:100%;margin-left:0; }
+}
+

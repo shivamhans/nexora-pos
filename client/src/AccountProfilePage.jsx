@@ -44,6 +44,7 @@ export default function AccountProfilePage({ auth, notify, onUnauthorized, onPro
   const [savingProfile, setSavingProfile] = useState(false);
   const [savingPassword, setSavingPassword] = useState(false);
   const [profileError, setProfileError] = useState('');
+  const [profileWarning, setProfileWarning] = useState('');
   const [passwordError, setPasswordError] = useState('');
   const [profileSaved, setProfileSaved] = useState(false);
   const [passwordSaved, setPasswordSaved] = useState(false);
@@ -76,6 +77,7 @@ export default function AccountProfilePage({ auth, notify, onUnauthorized, onPro
     setForm(current => ({ ...current, [key]: value }));
     setProfileSaved(false);
     setProfileError('');
+    setProfileWarning('');
   };
   const setPasswordValue = (key, value) => {
     setPasswordForm(current => ({ ...current, [key]: value }));
@@ -91,7 +93,7 @@ export default function AccountProfilePage({ auth, notify, onUnauthorized, onPro
       setProfileError('Enter a valid phone number or leave it blank.');
       return;
     }
-    setSavingProfile(true); setProfileError(''); setProfileSaved(false);
+    setSavingProfile(true); setProfileError(''); setProfileWarning(''); setProfileSaved(false);
     try {
       const result = await apiRequest('/auth/me', {
         method: 'PATCH', token,
@@ -100,8 +102,13 @@ export default function AccountProfilePage({ auth, notify, onUnauthorized, onPro
       setForm(initialForm(result.user));
       if (result.user?.updatedAt) setServerUpdatedAt(result.user.updatedAt);
       if (onProfileUpdated) onProfileUpdated(result);
-      setProfileSaved(true);
-      notifyRef.current?.('Your profile has been updated.', 'success');
+      setProfileSaved(!result.warning);
+      if (result.warning) {
+        setProfileWarning(result.warning);
+        notifyRef.current?.(result.warning, 'warning');
+      } else {
+        notifyRef.current?.('Your profile has been updated.', 'success');
+      }
     } catch (error) {
       setProfileError(error.message || 'Could not save your profile.');
       if (error.status === 401 && unauthorizedRef.current) unauthorizedRef.current();
@@ -172,6 +179,7 @@ export default function AccountProfilePage({ auth, notify, onUnauthorized, onPro
             </ProfileField>
           </div>
           <Feedback>{profileError}</Feedback>
+          <Feedback type="warning">{profileWarning}</Feedback>
           {profileSaved && <Feedback type="success">Your personal details are saved.</Feedback>}
           <div className="profile-form-footer"><span><LockKeyhole size={14}/> Only your personal details can be changed here. Role and permissions stay protected.</span><button className="btn btn-primary" type="submit" disabled={savingProfile || loading}>{savingProfile ? <RefreshCw size={15} className="profile-spin"/> : <Save size={15}/>}<span>{savingProfile ? 'Saving…' : 'Save changes'}</span></button></div>
         </form>}

@@ -8,7 +8,7 @@ function isPrivateIPv4(hostname) {
 }
 
 function resolveApiBaseUrl() {
-  // A remote device's localhost is itself, not the PC running Nexora.
+  // A remote device's localhost is itself, not the PC running Ritvan.
   // When opened via a private IPv4 address, redirect a local API URL to that same host.
   if (typeof window !== 'undefined' && isPrivateIPv4(window.location.hostname)) {
     try {
@@ -41,7 +41,7 @@ export async function apiRequest(path, options = {}) {
       ...(body === undefined ? {} : { body: JSON.stringify(body) }),
     });
   } catch {
-    throw new Error(`Cannot reach the Nexora API at ${API_BASE_URL}. Check that the API server is running and both devices are on the same Wi-Fi.`);
+    throw new Error(`Cannot reach the Ritvan API at ${API_BASE_URL}. Check that the API server is running and both devices are on the same Wi-Fi.`);
   }
 
   const text = await response.text();

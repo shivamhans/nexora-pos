@@ -1,12 +1,12 @@
--- Nexora POS schema (MySQL 8.0+)
+-- Ritvan POS schema (MySQL 8.0+)
 -- Single business / single store v1. No business_id/store_id tenancy columns.
 -- Run this only in a dedicated development database after backing up any existing data.
-CREATE DATABASE IF NOT EXISTS nexora_pos_cg CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;
-USE nexora_pos_cg;
+CREATE DATABASE IF NOT EXISTS ritvan_pos CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;
+USE ritvan_pos;
 
 CREATE TABLE IF NOT EXISTS business_settings (
   id TINYINT UNSIGNED NOT NULL PRIMARY KEY DEFAULT 1,
-  business_name VARCHAR(140) NOT NULL DEFAULT 'Nexora Store',
+  business_name VARCHAR(140) NOT NULL DEFAULT 'Ritvan Store',
   currency_code CHAR(3) NOT NULL DEFAULT 'INR',
   currency_symbol VARCHAR(8) NOT NULL DEFAULT '₹',
   locale VARCHAR(20) NOT NULL DEFAULT 'en-IN',

@@ -1043,3 +1043,7 @@ select{color-scheme:light}
   .split-payment-summary b { font-size:15px; }
 }
 
+.payment-method-grid {
+  grid-template-columns: repeat(auto-fit, minmax(78px, 1fr));
+}
+

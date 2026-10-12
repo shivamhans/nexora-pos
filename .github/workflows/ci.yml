@@ -1,4 +1,4 @@
-name: Nexora POS checks
+name: Ritvan POS checks
 
 on:
   push:

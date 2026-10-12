@@ -577,7 +577,25 @@ function receiptWhatsAppText(sale, businessName, money) {
   const items = Array.isArray(sale?.items) ? sale.items : [];
   const subtotal = items.reduce((sum, item) => sum + Number(item.price || 0) * Number(item.qty || 0), 0);
   const discount = Math.max(0, subtotal - Number(sale?.amount || 0));
-  return [`*${businessName || 'Nexora Store'}*`, '*Payment receipt*', `Receipt: ${sale?.id || '—'}`, `Date: ${sale?.date || new Date().toLocaleString()}`, `Customer: ${sale?.customer || 'Walk-in Customer'}`, '------------------------', ...items.map(item => `${item.name} × ${item.qty}  ${money(Number(item.price || 0) * Number(item.qty || 0))}`), '------------------------', `Subtotal: ${money(subtotal)}`, ...(discount > 0 ? [`Discount: −${money(discount)}`] : []), `${sale?.method === 'Credit' ? '*TOTAL ON KHATA:' : '*TOTAL PAID:'} ${money(sale?.amount || 0)}*`, `Payment method: ${sale?.method || '—'}`, ...(sale?.method === 'Cash' ? [`Change due: ${money(sale?.change || 0)}`] : []), sale?.method === 'Credit' ? 'Please settle your Khata balance later. Thank you!' : sale?.persisted ? 'Thank you for shopping with us!' : 'DEMO RECEIPT — not a saved transaction.'].join('\n');
+  const paymentLines = sale?.method === 'Split'
+    ? (Array.isArray(sale?.payments) ? sale.payments : []).map(payment => String(payment.method || 'Payment') + ': ' + money(Number(payment.amountReceived ?? payment.amount ?? 0)))
+    : ['Payment method: ' + (sale?.method || '—')];
+  return [
+    '*' + (businessName || 'Nexora Store') + '*',
+    '*Payment receipt*',
+    'Receipt: ' + (sale?.id || '—'),
+    'Date: ' + (sale?.date || new Date().toLocaleString()),
+    'Customer: ' + (sale?.customer || 'Walk-in Customer'),
+    '------------------------',
+    ...items.map(item => String(item.name || 'Item') + ' × ' + Number(item.qty || 0) + '  ' + money(Number(item.price || 0) * Number(item.qty || 0))),
+    '------------------------',
+    'Subtotal: ' + money(subtotal),
+    ...(discount > 0 ? ['Discount: −' + money(discount)] : []),
+    (sale?.method === 'Credit' ? '*TOTAL ON KHATA:' : '*TOTAL PAID:') + ' ' + money(sale?.amount || 0) + '*',
+    ...(sale?.method === 'Split' ? ['Payment breakdown:', ...paymentLines] : paymentLines),
+    ...(sale?.method === 'Cash' ? ['Change due: ' + money(sale?.change || 0)] : []),
+    sale?.method === 'Credit' ? 'Please settle your Khata balance later. Thank you!' : sale?.persisted ? 'Thank you for shopping with us!' : 'DEMO RECEIPT — not a saved transaction.',
+  ].join('\n');
 }
 function normalizeWhatsAppNumber(value) {
   let digits = String(value || '').replace(/\D/g, '');

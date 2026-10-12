@@ -310,11 +310,20 @@ async function createReceiptPng(sale, businessName, money, logoData = '') {
       const items = Array.isArray(sale?.items) ? sale.items : [];
       const subtotal = items.reduce((sum, item) => sum + Number(item.price || 0) * Number(item.qty || 0), 0);
       const discount = Math.max(0, subtotal - Number(sale?.amount || 0));
+      const paymentLines = sale?.method === 'Split'
+        ? (Array.isArray(sale?.payments) ? sale.payments : []).map(payment => ({
+            label: String(payment.method || 'Payment') + ' payment',
+            value: money(Number(payment.amountReceived ?? payment.amount ?? 0)),
+          }))
+        : [
+            { label: 'Payment method', value: String(sale?.method || '—') },
+            ...(sale?.method === 'Cash' ? [{ label: 'Change due', value: money(sale?.change || 0) }] : []),
+          ];
       const itemStart = 520;
       const summaryStart = itemStart + items.length * 64 + 24;
       const totalCardY = summaryStart + (discount > 0 ? 88 : 48);
       const paymentY = totalCardY + 96;
-      const footerY = paymentY + 74;
+      const footerY = paymentY + Math.max(74, paymentLines.length * 34 + 30);
       const width = 1080, height = footerY + 104;
       const canvas = document.createElement('canvas'); canvas.width = width; canvas.height = height;
       const ctx = canvas.getContext('2d');
@@ -381,7 +390,7 @@ async function createReceiptPng(sale, businessName, money, logoData = '') {
       };
       drawSummary('Subtotal', money(subtotal), summaryStart); if (discount > 0) drawSummary('Discount', '−' + money(discount), summaryStart + 40);
       roundedRect(ctx, cardX + 28, totalCardY, cardW - 56, 66, 18); ctx.fillStyle = '#f1edff'; ctx.fill(); drawSummary(sale?.method === 'Credit' ? 'TOTAL ON KHATA' : 'TOTAL PAID', money(sale?.amount || 0), totalCardY + 41, true);
-      drawSummary('Payment method', String(sale?.method || '—'), paymentY, false); if (sale?.method === 'Cash') drawSummary('Change due', money(sale?.change || 0), paymentY + 34, false);
+      paymentLines.forEach((line,index) => drawSummary(line.label, line.value, paymentY + index * 30, false));
       ctx.strokeStyle = '#e6e0f3'; ctx.setLineDash([6, 6]); ctx.beginPath(); ctx.moveTo(cardX + 42, footerY - 22); ctx.lineTo(cardX + cardW - 42, footerY - 22); ctx.stroke(); ctx.setLineDash([]);
       ctx.textAlign = 'center'; ctx.fillStyle = '#6f5bd8'; ctx.font = '700 19px Arial, sans-serif'; ctx.fillText('THANK YOU FOR YOUR PURCHASE ✦', width / 2, footerY + 10);
       ctx.fillStyle = '#9088a8'; ctx.font = '14px Arial, sans-serif'; ctx.fillText('Powered by Nexora POS', width / 2, footerY + 39);

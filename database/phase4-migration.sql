@@ -1,36 +1,36 @@
--- Nexora POS Phase 3/4 upgrade migration
--- Safe to run against an existing nexora_pos_cg database; creates only the tables
+-- Ritvan POS Phase 3/4 upgrade migration
+-- Safe to run against an existing ritvan_pos database; creates only the tables
 -- added after the original schema. Does not drop, rename, or rewrite existing rows.
-USE nexora_pos_cg;
+USE ritvan_pos;
 
 -- Add per-user permission configuration safely for existing databases.
-SET @nexora_has_permissions_json = (
+SET @ritvan_has_permissions_json = (
   SELECT COUNT(*) FROM information_schema.columns
   WHERE table_schema = DATABASE() AND table_name = 'users' AND column_name = 'permissions_json'
 );
-SET @nexora_permissions_sql = IF(
-  @nexora_has_permissions_json = 0,
+SET @ritvan_permissions_sql = IF(
+  @ritvan_has_permissions_json = 0,
   'ALTER TABLE users ADD COLUMN permissions_json JSON NULL AFTER role',
   'SELECT ''users.permissions_json already exists'' AS migration_status'
 );
-PREPARE nexora_permissions_stmt FROM @nexora_permissions_sql;
-EXECUTE nexora_permissions_stmt;
-DEALLOCATE PREPARE nexora_permissions_stmt;
+PREPARE ritvan_permissions_stmt FROM @ritvan_permissions_sql;
+EXECUTE ritvan_permissions_stmt;
+DEALLOCATE PREPARE ritvan_permissions_stmt;
 
 
 -- Add optional item photos safely when upgrading an existing database.
-SET @nexora_has_item_image = (
+SET @ritvan_has_item_image = (
   SELECT COUNT(*) FROM information_schema.columns
   WHERE table_schema = DATABASE() AND table_name = 'items' AND column_name = 'image_data'
 );
-SET @nexora_item_image_sql = IF(
-  @nexora_has_item_image = 0,
+SET @ritvan_item_image_sql = IF(
+  @ritvan_has_item_image = 0,
   'ALTER TABLE items ADD COLUMN image_data MEDIUMTEXT NULL AFTER description',
   'SELECT ''items.image_data already exists'' AS migration_status'
 );
-PREPARE nexora_item_image_stmt FROM @nexora_item_image_sql;
-EXECUTE nexora_item_image_stmt;
-DEALLOCATE PREPARE nexora_item_image_stmt;
+PREPARE ritvan_item_image_stmt FROM @ritvan_item_image_sql;
+EXECUTE ritvan_item_image_stmt;
+DEALLOCATE PREPARE ritvan_item_image_stmt;
 
 
 CREATE TABLE IF NOT EXISTS negative_stock_reconciliation (

@@ -18,6 +18,16 @@ const isManager = role => ['Admin', 'Manager'].includes(role);
 const localDateInput = date => { const copy = new Date(date); copy.setMinutes(copy.getMinutes() - copy.getTimezoneOffset()); return copy.toISOString().slice(0, 10); };
 const shortDay = value => new Date(value + 'T00:00:00').toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
 
+function EmptyState({ icon: Icon = Package, title, text, action }) {
+  return <div className="empty-state">
+    <div className="empty-icon"><Icon size={24}/></div>
+    <h3>{title}</h3>
+    <p>{text}</p>
+    {action}
+  </div>;
+}
+
+
 const PERMISSION_MODULES_BY_ROLE = {
   Admin: ['Dashboard', 'Point of Sale', 'Transactions', 'Inventory', 'Items', 'Categories', 'Purchases', 'Suppliers', 'Customers', 'Staff & Roles', 'Reports', 'Returns & Refunds', 'Settings'],
   Manager: ['Dashboard', 'Point of Sale', 'Transactions', 'Inventory', 'Items', 'Categories', 'Purchases', 'Suppliers', 'Customers', 'Reports', 'Returns & Refunds'],
